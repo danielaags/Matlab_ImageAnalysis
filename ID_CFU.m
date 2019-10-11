@@ -38,30 +38,63 @@ croppedImage(:,:,3) = I(:,:,3).*mask;
 
 %%
 %%Segmentation
-grayImage = rgb2gray(croppedImage);
-%Trasformation to get into 0-255 RGB range and plot a hist to see the
-%distribution
-figure
-imhist(grayImage)
-%imhist(uint8(grayImage/257))
-print(strcat(file,'hist'),'-dpng');
-close;
+
+i=1;
+%Red channel
+rgbI = imadjust(croppedImage(:,:,i)); %imshow(RGBImage);
+
+%Correct non-uniform ilumination
+se = strel('disk',175);
+background = imopen(rgbI,se);
+%imshow(background)
+rgbIbackground = rgbI - background; %imshow(rgbIbackground);
 
 %For brighter colonies than the background
-grayImage_1 = grayImage > 30& grayImage < 135; %imshow(grayImage_1)
-%grayImage_1 = grayImage > 30*257 & grayImage < 135*257; %imshow(grayImage_1)
-figure
-imshow(grayImage_1)
-print(strcat(file,'seg'),'-dpng');
-close;
-%Two iterations for better detection
-[centers_1, radii_1] = imfindcircles(grayImage_1,[20 60], 'ObjectPolarity', 'dark');
-[centers_2, radii_2] = imfindcircles(grayImage_1,[70 110], 'ObjectPolarity', 'dark');
-%[centers_2, radii_2] = imfindcircles(grayImage_1,[90 150], 'Sensitivity', 0.98)
+%imhist(RGBImage_)
+rgbI_Filter = rgbIbackground > 50;%imshow(rgbI_Filter);
+%to fill up holes
+rgbI_fill = imfill(rgbI_Filter,'holes');%imshow(rgbI_fill)
+%remove connected objest
+rgbI_nobord = imclearborder(rgbI_fill,4);%imshow(rgbI_nobord)
+%smooth object
+seD = strel('diamond',1);
+rgbI_final = imerode(rgbI_nobord,seD); rgbI_final = imerode(rgbI_final,seD);imshow(rgbI_final)
 
-% More than one iteration of imfindcircles
-centers = [centers_1 ; centers_2]; 
-radii = [radii_1 ; radii_2];
+%Find colonies using boundary
+[B,L,n,A] = bwboundaries(rgbI_final,'noholes');
+imshow(L)
+hold on
+for k = 1:length(B)
+   boundary = B{k};
+   plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
+end
+
+%get stats
+stats=  regionprops(L, 'Centroid', 'Area', 'Perimeter');
+Centroid = cat(1, stats.Centroid);
+Perimeter = cat(1,stats.Perimeter);
+Area = cat(1,stats.Area);
+CircleMetric = (Perimeter.^2)./(4*pi*Area);  %circularity metric
+Radii = sqrt(Area/pi);
+
+% %Threshold for metric
+% isCircle =   (CircleMetric < 1.1);
+% %assign shape to each object
+% whichShape = cell(n,1);  
+% whichShape(isCircle) = {'Circle'};
+
+imshow(rgbI_final);
+viscircles(Centroid,Radii,'EdgeColor','r');
+
+
+% now label with results
+% RGB = label2rgb(L);
+% imshow(RGB); hold on;
+% for k=1:n
+%    display metric values and which shape next to object
+%    text( Centroid(k,1), Centroid(k,2), 'a');
+%    text( Centroid(k,1)-20, Centroid(k,2)+20, whichShape{k});
+% end
 
 %%
 %%Plot the colonies found
@@ -73,7 +106,22 @@ for i = 1:length(radii)
     label{i}= strcat(day,'-',plate,'-',int2str(i));
 end
 
-%Plot the colony number
+%Plot 
+figure
+subplot(2,2,1)
+imshow(rgbI_Filter)
+
+subplot(2,2,2)
+imshow(rgbI_fill)
+
+subplot(2,2,3)
+imshow(rgbI_nobord)
+
+subplot(2,2,4)
+imshow(rgbI_final)
+print(strcat(file,'flow'),'-dpng');
+close;
+
 figure
 imshow(croppedImage);
 viscircles(centers,radii,'EdgeColor','b');
@@ -150,6 +198,7 @@ writetable(data,strcat(file,'.csv'),'Delimiter',',');
 % convolve the primary image with the diskfilter. This creates a new images
 % that locally integrates fluorescence.
 % Iconvolved = imfilter(I,diskfilter,'replicate');
+
 % Extract data
 % red = Iconvolved(round(centers(1,1)-radii(1):centers(1,1)+radii(1)),round(centers(1,2)),1);
 % green = Iconvolved(round(centers(1,1)-radii(1):centers(1,1)+radii(1)),round(centers(1,2)),2);
@@ -161,3 +210,18 @@ writetable(data,strcat(file,'.csv'),'Delimiter',',');
 % plot(green, 'green');
 % plot(blue, 'blue');
 % hold off
+
+%Other ways to highlight colonies
+% imshow(labeloverlay(grayImage,grayImage_1))
+% 
+% BWoutline = bwperim(grayImage_1);
+% Segout = grayImage; 
+% Segout(BWoutline) = 100; 
+% imshow(Segout)
+
+
+% figure
+imhist(grayImage)
+% %imhist(uint8(grayImage/257))
+% print(strcat(file,'hist'),'-dpng');
+% close;
