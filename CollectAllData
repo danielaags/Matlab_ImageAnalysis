@@ -1,0 +1,163 @@
+clear
+% 
+images = dir('*.tif');
+fnamesM = dir('*_d*');
+fnamesN = dir('d30*');
+path = pwd;
+
+numfids = length(fnamesM);
+%numfids = 1;
+delimiter = ',';
+startRow = 2;
+formatSpec = '%s%f%f%f%f%[^\n\r]';
+
+%Read file day=30. File only needs to be read once.
+filenameN = strcat(path, '\', fnamesN.name);
+%Open the file.
+fileID = fopen(filenameN,'r');
+dataArrayN = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines' ,startRow-1, 'ReturnOnError', false, 'EndOfLine', '\r\n');
+fclose(fileID);
+%Extract information
+namesN = dataArrayN{1};
+centersN= [dataArrayN{2}, dataArrayN{3}];
+radiiN = dataArrayN{4};
+
+%Cell data type to save different radii
+radii = cell(5,1);
+
+for k = 1:5
+%k
+%File 
+filenameM = strcat(path, '\', fnamesM(k).name);
+%Open the file.
+fileID = fopen(filenameM,'r');
+dataArrayM = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'TextType', 'string', 'HeaderLines' ,startRow-1, 'ReturnOnError', false, 'EndOfLine', '\r\n');
+fclose(fileID);
+%Extract information
+namesM = dataArrayM{1};
+centersM = [dataArrayM{2}, dataArrayM{3}];
+radiiM = dataArrayM{4};
+
+%find in day M
+isDayM = ones(length(namesN),1);
+%id_y = zeros(length(namesN),1);
+%id_x = zeros(length(namesN),1);
+for i = 1:length(namesN)
+    y = find(centersN(i,1)-5 <= centersM(:,1) & centersN(i,1)+5 >= centersM(:,1),1);
+    if isempty(y)
+        x = find(centersN(i,2)-5 <= centersM(:,2) & centersN(i,2)+5 >= centersM(:,2),1);
+        if isempty(x)
+            %No colony in time=15
+            isDayM(i) = false;
+        else
+            isDayM(i) = x;
+        end
+    else
+        isDayM(i) = y;
+    end     
+end
+id = isDayM;
+%Find new colonies identify before
+
+
+%Check how many were identify in last day, useful to add new rows to our
+%data frames
+extra_rows = length(namesM) - sum(id>0);
+%extra_rows = 0;
+
+%New empty vectors
+names = string(length(namesN)+extra_rows);
+y = zeros(length(namesN)+extra_rows,1);
+x = zeros(length(namesN)+extra_rows,1);
+rN = zeros(length(namesN)+extra_rows,1);
+rM = zeros(length(namesN)+extra_rows,1);
+
+i = 1;
+m = length(namesM);
+n = length(namesN);
+
+for j = 1:n
+    if j <= m
+        flag = find(j == id,1);
+        if isempty(flag)
+            %Add new values. Colony not found in day30 but day15
+            names(n+i) = namesM(j);
+            y(n+i) = centersM(j,1);
+            x(n+i) = centersM(j,2);
+            rN(n+i) = radiiM(j);
+            rM(n+i) = radiiM(j);
+            i = i + 1;
+            %Index from day30. No info from day15
+            names(j) = namesN(j);
+            y(j) = centersN(j,1);
+            x(j) = centersN(j,2);
+            rN(j) = radiiN(j);
+            rM(j) = 0;
+        else
+            names(flag) = namesN(flag);
+            y(flag) = centersN(flag,1);
+            x(flag) = centersN(flag,2);
+            rN(flag) = radiiN(flag);
+            rM(flag) = radiiM(j);
+        end
+    end
+    if j ~= flag
+        names(j) = namesN(j);
+        y(j) = centersN(j,1);
+        x(j) = centersN(j,2);
+        rN(j) = radiiN(j);
+        rM(j) = 0;
+    end
+end
+
+%Take data and replace *N with the updated date collected from dataN and
+%dataM
+namesN = names;
+centersN= [y, x];
+radiiN = rN;
+radii{k} = rM; 
+% if k > 1
+%     fill = find(radii{k-1} > rN)
+%     radiiN = rN;
+%     radii{k} = rM;   
+% end
+end
+
+%figure
+
+% %Save data
+% data = table(names30, centers30(:,1), centers30(:,2), radii30, isDay15, 'VariableNames', {'Label', 'x30', 'y30', 'radii30', 'isday15'});
+% %data = table(names30, centers30(:,1), centers30(:,2), radii30, isDay15, centers15(:,1), centers15(:,2), radii15, 'VariableNames', {'Label', 'x-30', 'y-30', 'radii-30', 'is-day15', 'x-15', 'y-15', 'radii-15'});
+% writetable(data,strcat('all_', file{1},'.csv'),'Delimiter',',');
+
+varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
+T = table(names', y, x, radii{5}, radii{4}, radii{3}, radii{2}, [radii{1};0], radiiN, 'VariableNames',varNames);
+
+% figure 
+% hold on
+% plot(log(table2array(T(1,4:9))))
+% plot(log(table2array(T(2,4:9))))
+% plot(log(table2array(T(3,4:9))))
+% plot(log(table2array(T(4,4:9))))
+% plot(table2array(T(5,4:9)))
+
+figure 
+hold on
+plot(table2array(T(1,4:9)))
+plot(table2array(T(2,4:9)))
+plot(table2array(T(3,4:9)))
+plot(table2array(T(4,4:9)))
+
+% I= images.name;
+% 
+% figure
+% imshow(I);
+% hold on
+% viscircles(centersM,radiiM,'EdgeColor','b');
+% viscircles(centersN,radiiN,'EdgeColor','r');
+% plot(centersM(:,1), centersM(:,2), 'b*')
+% plot(centersN(:,1), centersN(:,2), 'r*')
+% 
+% %text(centers(:,1), centers(:,2), colony);
+
+%stats = regionprops(___,I,properties) 
