@@ -68,7 +68,7 @@ for i = 1:2
 %         rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
 
         %Find colonies using boundary
-        [B,L,n,A] = bwboundaries(rgbI_final,'noholes');
+        [B,L1,n,A] = bwboundaries(rgbI_final,'noholes');      
 %         figure
 %         imshow(L)
 %         hold on
@@ -78,7 +78,7 @@ for i = 1:2
 %         end
 
         %get stats
-        stats=  regionprops(L, 'Centroid', 'Area', 'Perimeter', 'Eccentricity');
+        stats=  regionprops(L1, 'Centroid', 'Area', 'Perimeter', 'Eccentricity');
         %stats=  regionprops(L, 'Centroid', 'Area');
         Eccentricity = cat(1,stats.Eccentricity);
         Perimeter = cat(1,stats.Perimeter);
@@ -95,8 +95,7 @@ for i = 1:2
             r{i} = Radii(filter);
             e{i} = Eccentricity(filter);
         end
-    end
-    if i ==2
+    else
         rgbBW = rgbI < 50;%imshow(rgbBW)
         %remove connected objects
         rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
@@ -105,9 +104,9 @@ for i = 1:2
         rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
 
         %Find colonies using boundary
-        [B,L,n,A] = bwboundaries(rgbI_final,'noholes');
+        [B,L2,n,A] = bwboundaries(rgbI_final,'noholes');
 %         figure 
-%         imshow(L)
+%         imshow(L2)
 %         hold on
 %         for k = 1:length(B)
 %             boundary = B{k};
@@ -115,7 +114,7 @@ for i = 1:2
 %         end
         
         %get stats
-        stats=  regionprops(L, 'Centroid', 'Area', 'Perimeter', 'Eccentricity');
+        stats=  regionprops(L2, 'Centroid', 'Area', 'Perimeter', 'Eccentricity');
         %stats=  regionprops(L, 'Centroid', 'Area');
         Eccentricity = cat(1,stats.Eccentricity);
         Perimeter = cat(1,stats.Perimeter);
@@ -125,8 +124,6 @@ for i = 1:2
 
         %Filter by Area bigger than n
         filter = Area > 200 & Area < 70000 & Eccentricity < 0.7; 
-
-
         if isempty(filter) == 0
             c1{i} = floor(Centroid(filter,1));
             c2{i} = floor(Centroid(filter,2));
@@ -135,9 +132,16 @@ for i = 1:2
 
         end
 
-    end    
-
+    end 
+    
 end
+
+ %BW image
+    L = (L1 | L2);  
+    figure
+    imshow(L)
+    print(strcat('BW-', file),'-dpng');
+    close;
 
 x = cat(1,c1{1},c1{2});
 y = cat(1,c2{1},c2{2});
@@ -176,18 +180,18 @@ for i = 1:length(radii)
     colony{i} = int2str(i);
     label{i}= strcat(day,'-',plate,'-',int2str(i));
 end
-
-figure
-imshow(I);
-viscircles(centers,radii,'EdgeColor','b');
-text(centers(:,1), centers(:,2), colony);
-print(strcat(file,'IDs'),'-dpng');
-close;
-
-
-%Save data
-data = table(label', centers(:,1), centers(:,2), round(radii), round(radii*pixel_size,2), eccentricity, 'VariableNames', {'Label', 'x', 'y', 'r_px', 'r_cm', 'eccentricity'});
-writetable(data,strcat(file,'.csv'),'Delimiter',',');
+% 
+% figure
+% imshow(I);
+% viscircles(centers,radii,'EdgeColor','b');
+% text(centers(:,1), centers(:,2), colony);
+% print(strcat(file,'IDs'),'-dpng');
+% close;
+% 
+% 
+% %Save data
+% data = table(label', centers(:,1), centers(:,2), round(radii), round(radii*pixel_size,2), eccentricity, 'VariableNames', {'Label', 'x', 'y', 'r_px', 'r_cm', 'eccentricity'});
+% writetable(data,strcat(file,'.csv'),'Delimiter',',');
  
 end
 
