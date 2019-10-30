@@ -127,10 +127,15 @@ for i = 2:numfids-1
     radii{i}(idx) = radii{i+1}(idx);  
 end
 
+%Calculate the growth rate
+%%k = n/t%%
+k = (log10(radii{3})-log10(radii{4}))/0.301*5;
+
+
 %Collect data in a table, better visualization. COnsidered other data types
 file_name = split(fnamesN.name, '.');
-varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-T = table(names', y, x, radii{6}, radii{5}, radii{4}, radii{3}, radii{2}, radii{1}, 'VariableNames',varNames);
+varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30', 'growth'};
+T = table(names', y, x, radii{6}, radii{5}, radii{4}, radii{3}, radii{2}, radii{1}, k, 'VariableNames',varNames);
 writetable(T,strcat(file_name{1},'-radii.csv'),'Delimiter',',');
 
 
