@@ -177,8 +177,9 @@ for i = 1:length(images)
 
     % figure
     % imshow(BW)
-
-    s = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity', 'WeightedCentroid'});
+    
+    %Better to have a different name for the different structures
+    r = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
     %length(s)
    
 %     for k = 1 : length(s)
@@ -186,7 +187,7 @@ for i = 1:length(images)
 %     end
     output_name = split(file, '.');
     output = strcat(output_name{1},'-pixel.mat');
-    save(output, 's');
+    save(output, 'r');
 %     std_pixel{i} = output;
 %     max_pixel{i} = cat(1,s.MaxIntensity);
 %     min_pixel{i} = cat(1,s.MinIntensity);
@@ -195,45 +196,3 @@ for i = 1:length(images)
 % figure
 % bar(sd_pixel)
 end
-
-% varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-% T = table(names', y, x, std_pixel{6}, std_pixel{5}, std_pixel{4}, std_pixel{3}, std_pixel{2},std_pixel{1}, 'VariableNames',varNames);
-% writetable(T,strcat(file_name{1},'-std_pixel.csv'),'Delimiter',',');
-% 
-% varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-% T = table(names', y, x, max_pixel{6}, max_pixel{5}, max_pixel{4}, max_pixel{3}, max_pixel{2},max_pixel{1}, 'VariableNames',varNames);
-% writetable(T,strcat(file_name{1},'-max_pixel.csv'),'Delimiter',',');
-% 
-% varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-% T = table(names', y, x, min_pixel{6}, min_pixel{5}, min_pixel{4}, min_pixel{3}, min_pixel{2},min_pixel{1}, 'VariableNames',varNames);
-% writetable(T,strcat(file_name{1},'-max_pixel.csv'),'Delimiter',',');
-% 
-% varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-% T = table(names', y, x, mean_pixel{6}, mean_pixel{5}, mean_pixel{4}, mean_pixel{3}, mean_pixel{2}, mean_pixel{1}, 'VariableNames',varNames);
-% writetable(T,strcat(file_name{1},'-mean_pixel.csv'),'Delimiter',',');
-% 
-% varNames = {'Label', 'y', 'x', 'r5', 'r10', 'r15', 'r20', 'r25', 'r30'};
-% T = table(names', y, x, wc_pixel{6}, wc_pixel{5}, wc_pixel{4}, wc_pixel{3}, wc_pixel{2}, wc_pixel{1}, 'VariableNames',varNames);
-% writetable(T,strcat(file_name{1},'-wc_pixel.csv'),'Delimiter',',');
-
-% %Plot radii vs std-pixel-value
-% X = [radii{1} std_pixel{1}];
-% %plot(X, '*')
-% [idx,C] = kmeans(X,3);
-% figure
-% gscatter(X(:,1),X(:,2),idx,'bgm')
-% hold on
-% plot(C(:,1),C(:,2),'kx')
-% legend('Cluster 1','Cluster 2','Cluster 3','Cluster Centroid')
-% 
-% file= images(1).name;
-% I = imread(file);
-% col = ['b', 'g', 'm'];
-% figure
-% imshow(I);
-% hold on
-% for i = 1:3
-%     r = find(idx ==i);
-%     viscircles(centersN(r,:),radiiN(r), 'Color', col(i));
-% end
-% hold off
