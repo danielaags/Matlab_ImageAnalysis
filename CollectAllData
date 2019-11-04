@@ -77,37 +77,37 @@ i = 1;
 m = length(namesM);
 n = length(namesN);
 
-for j = 1:n
-    if j <= m
-        flag = find(j == id,1);
+for k = 1:n
+    if k <= m
+        flag = find(k == id,1);
         if isempty(flag)
             %Add new values. Colony not found in day30 but day15
-            names(n+i) = namesM(j);
-            y(n+i) = centersM(j,1);
-            x(n+i) = centersM(j,2);
-            rN(n+i) = radiiM(j);
-            rM(n+i) = radiiM(j);
+            names(n+i) = namesM(k);
+            y(n+i) = centersM(k,1);
+            x(n+i) = centersM(k,2);
+            rN(n+i) = radiiM(k);
+            rM(n+i) = radiiM(k);
             i = i + 1;
             %Index from day30. No info from day15
-            names(j) = namesN(j);
-            y(j) = centersN(j,1);
-            x(j) = centersN(j,2);
-            rN(j) = radiiN(j);
-            rM(j) = 0;
+            names(k) = namesN(k);
+            y(k) = centersN(k,1);
+            x(k) = centersN(k,2);
+            rN(k) = radiiN(k);
+            rM(k) = 0;
         else
             names(flag) = namesN(flag);
             y(flag) = centersN(flag,1);
             x(flag) = centersN(flag,2);
             rN(flag) = radiiN(flag);
-            rM(flag) = radiiM(j);
+            rM(flag) = radiiM(k);
         end
     end
-    if j ~= flag
-        names(j) = namesN(j);
-        y(j) = centersN(j,1);
-        x(j) = centersN(j,2);
-        rN(j) = radiiN(j);
-        rM(j) = 0;
+    if k ~= flag
+        names(k) = namesN(k);
+        y(k) = centersN(k,1);
+        x(k) = centersN(k,2);
+        rN(k) = radiiN(k);
+        rM(k) = 0;
     end
 end
 
@@ -157,42 +157,52 @@ save(strcat(file_name{1},'-data.mat'), 's');
 % wc_pixel = cell(6,1);
 
 for i = 1:length(images)
-    file= images(i).name;
-    rgbI = rgb2gray(imread(file));
-    %Create BW canvas
-    imageSize = size(rgbI);
-    BW = false(imageSize);
-    
-    %The number of identified colonies don't stay the same. I will better
-    %save the whole struct with centroids included to filter later.
-    imshow(rgbI);
-    hold on
-    for j = 1:length(names)
-        h = drawcircle(gca,'Center',centersN(j,:),'Radius',(radii{i}(j)));
-        mask = h.createMask();
-        BW = BW | mask;
-    end
-    hold off
-    close
+        file= images(i).name;
+        filename = split(file, '.');
+        I = imread(file, 'tif');
+    for j = 1:3
+        rgbI = I(:,:,j);
+        %Create BW canvas
+        imageSize = size(rgbI);
+        BW = false(imageSize);
 
-    % figure
-    % imshow(BW)
-    
-    %Better to have a different name for the different structures
-    r = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
-    %length(s)
-   
-%     for k = 1 : length(s)
-%         output(k) = std(double(s(k).PixelValues));
-%     end
-    output_name = split(file, '.');
-    output = strcat(output_name{1},'-pixel.mat');
-    save(output, 'r');
-%     std_pixel{i} = output;
-%     max_pixel{i} = cat(1,s.MaxIntensity);
-%     min_pixel{i} = cat(1,s.MinIntensity);
-%     mean_pixel{i} = cat(1,s.MeanIntensity);
-%     wc_pixel{i} = cat(1,s.WeightedCentroid);
-% figure
-% bar(sd_pixel)
+        %The number of identified colonies don't stay the same. I will better
+        %save the whole struct with centroids included to filter later.
+        imshow(rgbI);
+        hold on
+        for k = 1:length(names)
+            h = drawcircle(gca,'Center',centersN(k,:),'Radius',(radii{i}(k)));
+            mask = h.createMask();
+            BW = BW | mask;
+        end
+        hold off
+        close
+
+        % figure
+        % imshow(BW)
+
+        %Better to have a different name for the different structures
+        r = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+        %length(s)
+
+    %     for k = 1 : length(s)
+    %         output(k) = std(double(s(k).PixelValues));
+    %     end
+        %Save according to RGB channel
+        if j == 1
+            %Better to have a different name for the different structures
+            statsPixel_red = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_red.mat'), 'statsPixel_red');
+        elseif j == 2
+            %Better to have a different name for the different structures
+            statsPixel_green = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_green.mat'), 'statsPixel_green');
+        else
+            %Better to have a different name for the different structures
+            statsPixel_blue = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_blue.mat'), 'statsPixel_blue');
+        end
+        
+        
+    end
 end
