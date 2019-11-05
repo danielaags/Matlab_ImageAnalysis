@@ -22,9 +22,9 @@ pixel_size=2.54/96; %cm
 %Read file
 images = dir('*.tif');
 
-for n = 1:length(images)
+for n = 0:length(images)-1
 
-    file= images(n).name;
+    file= images(n+1).name;
     filename = split(file, '.');
     %16-bit file, RGB range 0-2500
     I = imread(file, 'tif');
@@ -47,52 +47,39 @@ for n = 1:length(images)
     croppedImage(:,:,3) = I(:,:,3).*mask;
     % figure
     % imshow(croppedImage)
-
-
-    %%
-    %%Segmentation just in grayscale
-    c1 = cell(2,1);
-    c2 = cell(2,1);
-    r = cell(2,1);
-    e = cell(2,1);
-
-
+    
     %Correct non-uniform ilumination. Adjust specific range
     rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]);%imshow(rgbI);
 
-    for i = 1:2
-        if i == 1
-            %Filter bright colonies
-            rgbBW = rgbI >=190;%imshow(rgbBW)
-            %remove connected objects
-            rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
-            %to fill up holes
-            rgbI_final = imfill(rgbI_nobord,'holes');%imshow(rgbI_final)       
-            %smooth object
-    %         seD = strel('diamond',1);
-    %         rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
+    %Filter bright colonies
+    rgbBW = rgbI >=190;%imshow(rgbBW)
+    %remove connected objects
+    rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
+    %to fill up holes
+    rgbI_final = imfill(rgbI_nobord,'holes');%imshow(rgbI_final)       
+    %smooth object
+%         seD = strel('diamond',1);
+%         rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
 
-            %Find colonies using boundary
-            [B,L1,n1,A] = bwboundaries(rgbI_final,'noholes');      
-    %         figure
-    %         imshow(L)
-    %         hold on
-    %         for k = 1:length(B)
-    %            boundary = B{k};
-    %            plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
-    %         end
-        else
-            rgbBW = rgbI < 50;%imshow(rgbBW)
-            %remove connected objects
-            rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
-            %smooth object
-            seD = strel('diamond',1);
-            rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
+    %Find colonies using boundary
+    [B,L1,n1,A] = bwboundaries(rgbI_final,'noholes');      
+%         figure
+%         imshow(L)
+%         hold on
+%         for k = 1:length(B)
+%            boundary = B{k};
+%            plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
+%         end
 
-            %Find colonies using boundary
-            [B,L2,n2,A] = bwboundaries(rgbI_final,'noholes');
-        end     
-    end
+    rgbBW = rgbI < 50;%imshow(rgbBW)
+    %remove connected objects
+    rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
+    %smooth object
+    seD = strel('diamond',1);
+    rgbI_final = imerode(rgbI_nobord,seD); %rgbI_final = imerode(rgbI_final,seD);
+
+    %Find colonies using boundary
+    [B,L2,n2,A] = bwboundaries(rgbI_final,'noholes');
 
     if isempty(n2)
         L = L1;
@@ -125,7 +112,7 @@ for n = 1:length(images)
     %Calculate indexes to plot a circle and compare with the indexes in mask
     th = 0:pi/5:2*pi;
     for i = 1:length(filter1)
-    %     imshow(croppedImage);
+        %imshow(croppedImage);
         %Fit a circle
         xunit = floor(Radii(filter1(i)) * cos(th) + Centroid(filter1(i),1));
         yunit = floor(Radii(filter1(i)) * sin(th) + Centroid(filter1(i),2));
@@ -138,89 +125,126 @@ for n = 1:length(images)
 
     filter2 = nonzeros(filter2);
 
-    eccentricity = Eccentricity(filter2);
-    circularity = Circularity(filter2);
-    perimeter = Perimeter(filter2);
-    area = Area(filter2);
-    radii = Radii(filter2);
-
+    eccentricity{n+1} = Eccentricity(filter2);
+    circularity{n+1} = Circularity(filter2);
+    perimeter{n+1} = Perimeter(filter2);
+    area{n+1} = Area(filter2);
+    radii{n+1} = Radii(filter2);
+    centroid{n+1} = round(Centroid(filter2,:));
+    %test = round(Centroid(filter2,:));
     %%
     %Compare two data points and get the change in radii
-    if n>1
-        %Save the i-1 and the i to compared
-        centroidsO = centroid;
-        centroid = Centroid(filter2,:);
-
+    if n>0
         %Check if there are colonies in i-1 not seen in i
-        isDay = ones(length(centroidsO),1);
-
-        for i = 1:length(centroidsO)
-            x = find(centroidsO(i,1)-3 <= centroid(:,1) & centroidsO(i,1)+3 >= centroid(:,1),1);
+        %match will store the colonies found in t-1 and t. It takes the
+        %indexes from t
+        %new will save the colony from t-1 that wasn't found in t
+        %update_radii = zeros(length(centroidOld),1);
+        for i = 1:length(centroid{n})
+            x = find(centroid{n}(i,1) - 10 <= centroid{n+1}(:,1) & centroid{n}(i,1) + 10 >= centroid{n+1}(:,1));
+            y = find(centroid{n}(i,2) - 10 <= centroid{n+1}(:,2) & centroid{n}(i,2) + 10 >= centroid{n+1}(:,2));
             if isempty(x)
-                y = find(centroidsO(i,2)-3 <= centroid(:,2) & centroidsO(i,2)+3 >= centroid(:,2),1);
-                if isempty(y)
-                    %Not found in i
-                    isDay(i) = false;
+                if isempty(y)                 
+                    %index from centroid, no colony found in previous
+                    %search
+                    new_centroid{i} = centroid{n}(i,:);
+                    %new_area{i}=area{n}(i);
+                    new_radii{i} = radii{n}(i);
                 else
-                    %Found in i
-                    isDay(i) = y;
+                    if length(y) == 1
+                        if centroid{n}(i,2)-1 <= centroid{n+1}(y,2) && centroid{n}(i,2)+1 >= centroid{n+1}(y,2)
+                            new_centroid{i} = centroid{n+1}(y,:);
+                            new_area{i}=area{n+1}(y);
+                            new_radii{i} = radii{n+1}(y);
+                            match(i) = y;
+                        else
+                            new_centroid{i} = centroid{n}(i,:);
+                            new_area{i}=area{n}(i);
+                            new_radii{i} = radii{n}(i);
+                        end
+                    end
                 end
             else
-                isDay(i) = x;
-            end     
-        end    
-    else
-        %It will save the first time point
-        centroid = round(Centroid(filter2,:)); %x,y    
-    end
+                if isempty(y)
+                    new_centroid{i} = centroid{n+1}(x,:);
+                    new_area{i}=area{n+1}(x);
+                    new_radii{i} = radii{n+1}(x);
+                    match(i) = x;
+                else
+                    if length(x) == length(y)
+                        %found in i
+                        new_centroid{i} = centroid{n+1}(x,:);
+                        new_area{i}=area{n+1}(x);
+                        new_radii{i} = radii{n+1}(x);
+                        match(i) = x;
+                    else
+                        in = intersect(x,y);
+                        new_centroid{i} = centroid{n+1}(in,:);
+                        new_area{i}=area{n+1}(in);
+                        new_radii{i} = radii{n+1}(in);
+                        match(i) = in;
+                    end
+                end
+
+            end 
+        end 
+        
+        new = setdiff(1:length(radii{n+1}), match);
+        
+%         centroid_new{n} = [cat(1,new_centroid{:});centroid{n+1}(new,:)];
+%         radii_new{n} = [new_radii';radii{n+1}(new)];
+        
+        centroid{n+} = [cat(1,new_centroid{:});centroid{n+1}(new,:)];
+        radii{n+1} = [cat(1,new_radii{:});radii{n+1}(new)];
+    end  
 
     %%
     %%Plot the colonies found and save data
     %Labels
-    colony = cell(1,length(radii)); 
-    label = cell(length(radii),1);
-    ID = cell(length(radii),1);
+    colony = cell(1,length(radii{n+1})); 
+    label = cell(length(radii{n+1}),1);
+    ID = cell(length(radii{n+1}),1);
     %Give labels
-    for i = 1:length(radii)
+    for i = 1:length(radii{n+1})
         colony{i} = int2str(i);
         label{i}= strcat(day,'-',plate,'-',int2str(i));
         ID{i}=strcat(plate,'-',int2str(i));
     end
     % 
     figure
-    imshow(I);
-    viscircles(centroid,radii,'EdgeColor','b');
-    text(centroid(:,1), centroid(:,2), colony);
+    imshow(croppedImage);
+    viscircles(centroid{n+1},radii{n+1},'EdgeColor','b');
+    text(centroid{n+1}(:,1), centroid{n+1}(:,2), colony);
     print(strcat(filename{1},'IDs'),'-dpng');
     close;
+% 
+%     %Save data
+%     statsData = struct('label', label, 'ID', ID, 'centroid', centroid, 'perimeter', perimeter, 'area', area, 'radii', radii, 'eccentricity', eccentricity, 'circularity', circularity);
+%     save(strcat(filename{1},'-data.mat'), 'statsData');
 
-    %Save data
-    statsData = struct('label', label, 'ID', ID, 'centroid', centroid, 'perimeter', perimeter, 'area', area, 'radii', radii, 'eccentricity', eccentricity, 'circularity', circularity);
-    save(strcat(filename{1},'-data.mat'), 'statsData');
-
-    %%
-    %Get pixel information per channel
-    for k = 1:3
-        rgbI = I(:,:,k);
-        %Create BW canvas
-        imageSize = size(rgbI);
-        BW = false(imageSize);
-
-        %The number of identified colonies don't stay the same. I will better
-        %save the whole struct with centroids included to filter later.
-        imshow(rgbI);
-        hold on
-        for i = 1:length(radii)
-            h = drawcircle(gca,'Center',centroid(i,:),'Radius',(radii(i)));
-            mask = h.createMask();
-            BW = BW | mask;
-        end
-        hold off
-        close
-
-        % figure
-        % imshow(BW)
-        %Save according to RGB channel
+%     %%
+%     %Get pixel information per channel
+%     for k = 1:3
+%         rgbI = I(:,:,k);
+%         %Create BW canvas
+%         imageSize = size(rgbI);
+%         BW = false(imageSize);
+% 
+%         %The number of identified colonies don't stay the same. I will better
+%         %save the whole struct with centroids included to filter later.
+%         imshow(rgbI);
+%         hold on
+%         for i = 1:length(radii{n+1})
+%             h = drawcircle(gca,'Center',centroid{n+1}(i,:),'Radius',(radii{n+1}(i)));
+%             mask = h.createMask();
+%             BW = BW | mask;
+%         end
+%         hold off
+%         close
+% 
+%         figure
+%         imshow(BW)
+%         Save according to RGB channel
 %         if k == 1
 %             %Better to have a different name for the different structures
 %             statsPixel_red = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
@@ -234,8 +258,8 @@ for n = 1:length(images)
 %             statsPixel_blue = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
 %             save(strcat(filename{1},'-pixel_blue.mat'), 'statsPixel_blue');
 %         end
-
-    end
+% 
+%     end
 
 end 
 %end
