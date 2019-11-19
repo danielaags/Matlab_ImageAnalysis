@@ -3,7 +3,10 @@ clear
 %images = dir('*.tif');
 dataF = dir('*data.mat');
 radiiF = dir('*radii.mat');
-pixelF = dir('*pixel.mat');
+pixel_blueF = dir('*pixel_blue.mat');
+pixel_redF = dir('*pixel_red.mat');
+pixel_greenF = dir('*pixel_green.mat');
+
 images = dir('*.tif');
 
 
@@ -17,16 +20,25 @@ images = dir('*.tif');
 for i = 1:length(dataF)
     load(dataF(i).name)
     load(radiiF(i).name)
+    load(pixel_redF(i).name)
+    load(pixel_greenF(i).name)
+    load(pixel_blueF(i).name)
         if i == 1
-        data = s;
+        data = g;
         %For now, only collect radii from the last day
-        radii30 = radii{1};
+        radii30 = Radii{1};
+        redAll = statsPixel_red;
+        greenAll = statsPixel_green;
+        blueAll = statsPixel_blue;
         else
-            data.Label = ([data.Label; s.Label]);
-            data.y = ([data.y; s.y]);
-            data.x = ([data.x; s.x]);
-            data.growth = ([data.growth; s.growth]);
-            radii30 = [radii30;radii{1}];
+            data.Label = ([data.Label; g.Label]);
+            data.y = ([data.y; g.y]);
+            data.x = ([data.x; g.x]);
+            data.growth = ([data.growth; g.growth]);
+            radii30 = [radii30;Radii{1}];
+            redAll = [redAll; statsPixel_red];
+            greenAll = [greenAll; statsPixel_green];
+            blueAll = [blueAll; statsPixel_blue];
         end
 
 end
@@ -34,40 +46,53 @@ end
 %Need to repeat for loop since I gave the struct same names, already
 %CollectAllData script changed to avoid this issue and do everything in a
 %single for loop. Remember to change the struct name from s > r
-for i = 1:length(dataF)
-    load(pixelF(i).name)
-        if i == 1
-        pixel = s;
-        else
-            pixel = [pixel; s];
-
-        end
-end
+% for i = 1:length(dataF)
+%     load(pixel_blueF(i).name)
+%         if i == 1
+%         pixel = s;
+%         else
+%             pixel = [pixel; s];
+% 
+%         end
+% end
 
 %%
 %Find the centroids and collect the information as labels and radii
 cy_original = data.y;
 cx_original = data.x;
 
-pixel_centroid = cat(1, pixel.Centroid);
+%Get information for on channel, should be the same in all the three
+%channels
+pixel_centroid = cat(1, redAll.Centroid);
 cy_pixel = round(pixel_centroid(:,1));
 cx_pixel = round(pixel_centroid(:,2));
 
 idx_pixel = zeros(length(cy_pixel), 1);
 radii_pixel = zeros(length(cy_pixel), 1);
 growth_pixel = zeros(length(cy_pixel), 1);
-std_pixel = zeros(length(cy_pixel), 1);
+std_pixelRed = zeros(length(cy_pixel), 1);
+std_pixelGreen = zeros(length(cy_pixel), 1);
+std_pixelBlue = zeros(length(cy_pixel), 1);
+
+
 %label string will be also split to have an easier way to plot on the
 %plates
 label_pixel = strings(length(cy_pixel), 1);
 plate_pixel = zeros(length(cy_pixel), 1);
 colony_pixel = zeros(length(cy_pixel), 1);
 
-
+%Go along the y coordenates in pixel values, only one channel (read
+%channel) and compare with the coordenates from the original data.
 for i = 1:length(cy_pixel)
     y = find(cy_pixel(i) == cy_original, 1);
     x = find(cx_pixel(i) == cx_original, 1);
-    std_pixel(i) = std(double(pixel(i).PixelValues));
+    %Get the std deviation of the intensity values in the selected colony.
+    %Indexes stayed the same since we are extracting from the same
+    %location.
+    std_pixelRed(i) = std(double(redAll(i).PixelValues));
+    std_pixelGreen(i) = std(double(greenAll(i).PixelValues));
+    std_pixelBlue(i) = std(double(blueAll(i).PixelValues));
+
     if y == x
         idx_pixel(i)= y;
         label_pixel(i) = data.Label(y);
@@ -81,12 +106,176 @@ for i = 1:length(cy_pixel)
 end
 
 %%
+%Cluster RGB data
+
+%Standard deviation 
+Y = [std_pixelRed std_pixelGreen std_pixelBlue]/257;
+scatter3(Y(:,1), Y(:,2), Y(:,3), 'filled')
+title('std RGB values');
+xlabel('red');
+ylabel('green');
+zlabel('blue');
+
+%Find clusters, number of clusters to find = 5
+C1 = clusterdata(Y,'linkage','ward',10);
+%Plot the results
+scatter3(Y(:,1), Y(:,2), Y(:,3),75, C1, 'filled')
+title('std RGB Clustering');
+xlabel( 'red');
+ylabel('green');
+zlabel('blue');
+
+%%
+%Mean
+X = round([cat(1,redAll.MeanIntensity) cat(1,greenAll.MeanIntensity) cat(1,blueAll.MeanIntensity)]/257);
+scatter3(X(:,1), X(:,2), X(:,3), 'filled')
+title('mean RGB values');
+xlabel('red');
+ylabel('green');
+zlabel('blue');
+
+%col = [0.1 0.15 0.2];
+%Find clusters, number of clusters to find = n
+C0 = clusterdata(X,'linkage','ward', 10);
+%Plot the results
+h = scatter3(X(:,1), X(:,2), X(:,3),75, C0, 'filled')
+title('mean RGB Clustering');
+xlabel('red');
+ylabel('green');
+zlabel('blue');
+
+%For 5 clusters
+% col = [64 41 118;
+%     41 118 254;
+%     29 178 187;
+%     206 201 29;
+%     237 247 37];
+
+%For 10 clusters
+col = [59 36 179;
+    63 69 231;
+    63 109 253;
+    41 151 234;
+    30 178 229;
+    29 200 155;
+    118 203 71;
+    224 199 34;
+    225 201 60;
+    244 248 5];
+
+ 
+
+
+
+col = col/255;
+
+
+for j = 1:length(images)
+    %j=1;
+    file= images(j).name;
+    I = imread(file);
+    
+    %Find index where the plate belongs
+    temp_idx = find(plate_pixel == j);
+    %Find the centroids found in that plate and the raddii for the colonies
+    temp_centroid = pixel_centroid(temp_idx,:);
+    temp_radii = radii_pixel(temp_idx);
+    %Find the corresponding cluster the colony belongs to
+    %Mean
+    temp_cluster_mean = C0(temp_idx);
+    %Standard deviation
+    temp_cluster_sd = C1(temp_idx);
+    
+    %Gets the cluster that correspond to the specific plate
+    %clusters = unique(temp_cluster);
+    figure
+    imshow(I);
+    hold on
+    %Goes along the different clusters in the plate and plots
+%     for i = 1:length(clusters) 
+%         idx_c = find(temp_cluster == clusters(i));
+%         viscircles(temp_centroid(idx_c,:), temp_radii(idx_c), 'Color', col(clusters(i),:));
+%     end  
+    for i = 1:length(temp_cluster_mean) 
+        y = temp_centroid(i,2);
+        x = temp_centroid(i,1);
+        r = temp_radii(i);
+        rectangle('Position', [x-r y-r r r], 'EdgeColor', col(temp_cluster_sd(i),:), 'LineWidth', 2);
+        rectangle('Position', [x-r y-r r*2 r*2], 'EdgeColor', col(temp_cluster_mean(i),:), 'LineWidth', 2);
+    end 
+    hold off
+    
+    output = split(file, '.');
+    print(output{1},'-dpng');
+    close;
+end
+
+%Plot the results with size dependent on st cluster
+scatter3(X(:,1), X(:,2), X(:,3),C1*10, C0, 'filled')
+title('mean RGB Clustering');
+xlabel('red');
+ylabel('green');
+zlabel('blue');
+
+clusterData = struct('label', label_pixel, 'red', X(:,1), 'green', X(:,2), 'blue', X(:,3), 'clusterMean', C0, 'clusterSD', C1);
+%Edit labels or any other cell
+%clusterData.label(176,1) = "190921_30-20-8";
+save(strcat('clusterData', '-data.mat'), 'clusterData');
+
+colonies = cell(10,1);
+for k = 1:10
+    colonies{k} = find(C0 == k);
+end
+
+
+%To find name and mean RGB values
+% label_pixel(colonies{3})
+% X(colonies{3},:)
+% 
+% label_pixel(colonies{5}(2))
+% X(colonies{5}(2),:)
+
+%%
+%Look more into the clusterdata() function
+
+% Distance information
+Y = pdist(X);
+Y = squareform(Y);
+%max(max(Y))
+%min(min(Y))
+
+%Linkage and cluster tree. Default euclidean
+Z = linkage(Y);
+%first and second row, linked objects
+%third row, distance
+dendrogram(Z)
+%cophenetic correlation coefficient
+c=cophenet(Z,Y)
+
+%By repeting 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%
 %Cluster radii and std color. There are many values different from double
 %in my growth array. Need better way to calculate this. However, so far I
 %can have.
 idx = growth_pixel > 0 & growth_pixel < Inf;
+%Calculate for Red pixels
 %Array between two values
-X = [growth_pixel(idx) std_pixel(idx)];
+X = [growth_pixel(idx) std_pixelRed(idx)];
 [idx,C] = kmeans(X,3);
 figure
 gscatter(X(:,1),X(:,2),idx,'bgm')
@@ -98,8 +287,6 @@ close
 col = ['b', 'g', 'm'];
 %%
 %I need to re-filter the values at this step
-
-
 for j = 1:length(images)
     file= images(j).name;
     I = imread(file);
@@ -109,14 +296,14 @@ for j = 1:length(images)
     %Find the centroids found in that plate and the raddii for the colonies
     temp_centroid = pixel_centroid(temp_idx,:);
     temp_radii = radii_pixel(temp_idx);
-    temp_cluster = idx(temp_idx);
+    temp_cluster_mean = idx(temp_idx);
     
-    clusters = unique(temp_cluster);
+    clusters = unique(temp_cluster_mean);
     figure
     imshow(I);
     hold on
     for i = 1:length(clusters) 
-        idx_c = find(temp_cluster == clusters(i));
+        idx_c = find(temp_cluster_mean == clusters(i));
         viscircles(temp_centroid(idx_c,:), temp_radii(idx_c), 'Color', col(clusters(i)));
     end  
     hold off
@@ -154,4 +341,3 @@ for i = 1:3
     viscircles(centersN(r,:),radiiN(r), 'Color', col(i));
 end
 hold off
-
