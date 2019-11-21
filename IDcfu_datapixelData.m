@@ -8,8 +8,8 @@
 clear
  
 %to test without function
-day0 = '190921';
-plateN = '1';
+% day0 = '190921';
+% plateN = '1';
 %filename = 'i0-d30-20µl-nr2';
 
 %Info
@@ -19,7 +19,7 @@ plate = plateN;
 %1inch x 96 pixels; 1inch = 2.54cm
 pixel_size=2.54/96; %cm
 
-%Read file
+%Read files. Batch of pictures from a plate taken along several days
 images = dir('*.tif');
 
 for n = 0:length(images)-1
@@ -194,7 +194,7 @@ for n = 0:length(images)-1
 %         centroid_new{n} = [cat(1,new_centroid{:});centroid{n+1}(new,:)];
 %         radii_new{n} = [new_radii';radii{n+1}(new)];
         
-        centroid{n+} = [cat(1,new_centroid{:});centroid{n+1}(new,:)];
+        centroid{n+1} = [cat(1,new_centroid{:});centroid{n+1}(new,:)];
         radii{n+1} = [cat(1,new_radii{:});radii{n+1}(new)];
     end  
 
@@ -219,47 +219,47 @@ for n = 0:length(images)-1
     close;
 % 
 %     %Save data
-%     statsData = struct('label', label, 'ID', ID, 'centroid', centroid, 'perimeter', perimeter, 'area', area, 'radii', radii, 'eccentricity', eccentricity, 'circularity', circularity);
-%     save(strcat(filename{1},'-data.mat'), 'statsData');
+    statsData = struct('label', label, 'ID', ID, 'centroid', centroid, 'perimeter', perimeter, 'area', area, 'radii', radii, 'eccentricity', eccentricity, 'circularity', circularity);
+    save(strcat(filename{1},'-data.mat'), 'statsData');
 
 %     %%
 %     %Get pixel information per channel
-%     for k = 1:3
-%         rgbI = I(:,:,k);
-%         %Create BW canvas
-%         imageSize = size(rgbI);
-%         BW = false(imageSize);
-% 
-%         %The number of identified colonies don't stay the same. I will better
-%         %save the whole struct with centroids included to filter later.
-%         imshow(rgbI);
-%         hold on
-%         for i = 1:length(radii{n+1})
-%             h = drawcircle(gca,'Center',centroid{n+1}(i,:),'Radius',(radii{n+1}(i)));
-%             mask = h.createMask();
-%             BW = BW | mask;
-%         end
-%         hold off
-%         close
-% 
-%         figure
-%         imshow(BW)
-%         Save according to RGB channel
-%         if k == 1
-%             %Better to have a different name for the different structures
-%             statsPixel_red = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
-%             save(strcat(filename{1},'-pixel_red.mat'), 'statsPixel_red');
-%         elseif k == 2
-%             %Better to have a different name for the different structures
-%             statsPixel_green = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
-%             save(strcat(filename{1},'-pixel_green.mat'), 'statsPixel_green');
-%         else
-%             %Better to have a different name for the different structures
-%             statsPixel_blue = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
-%             save(strcat(filename{1},'-pixel_blue.mat'), 'statsPixel_blue');
-%         end
-% 
-%     end
+    for k = 1:3
+        rgbI = I(:,:,k);
+        %Create BW canvas
+        imageSize = size(rgbI);
+        BW = false(imageSize);
+
+        %The number of identified colonies don't stay the same. I will better
+        %save the whole struct with centroids included to filter later.
+        imshow(rgbI);
+        hold on
+        for i = 1:length(radii{n+1})
+            h = drawcircle(gca,'Center',centroid{n+1}(i,:),'Radius',(radii{n+1}(i)));
+            mask = h.createMask();
+            BW = BW | mask;
+        end
+        hold off
+        close
+
+        figure
+        imshow(BW)
+        Save according to RGB channel
+        if k == 1
+            %Better to have a different name for the different structures
+            statsPixel_red = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_red.mat'), 'statsPixel_red');
+        elseif k == 2
+            %Better to have a different name for the different structures
+            statsPixel_green = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_green.mat'), 'statsPixel_green');
+        else
+            %Better to have a different name for the different structures
+            statsPixel_blue = regionprops(BW,rgbI,{'Centroid','PixelValues', 'MaxIntensity', 'MinIntensity', 'MeanIntensity'});
+            save(strcat(filename{1},'-pixel_blue.mat'), 'statsPixel_blue');
+        end
+
+    end
 
 end 
 %end
