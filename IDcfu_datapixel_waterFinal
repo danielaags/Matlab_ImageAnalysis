@@ -1,4 +1,4 @@
-function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
+function[n] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     %This script identifies bacteria colonies in a petri dish. It generates a
     %mask first to avoid the outer part of the plate. Later, segmentation and
     %label identification allows to target even those colonies that are not
@@ -6,11 +6,11 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     %and a .mat file with a label, morphological and RGB pixel information.
 
     %clear
-
+%%
     %to test without function
-    day0 = '190921';
-    plateN = '1';
-    fileimage = 'd30-10µl-nr4';
+%     day0 = '190921';
+%     plateN = '1';
+%     fileimage = 'd30-10µl-nr5';
 %     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
@@ -76,23 +76,14 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     rgbI_noholes = imfill(rgbI_nobord,'holes');%imshow(rgbI_final)       
     %smooth object. Avoids extracting background information
     seD = strel('diamond',1);
-    rgbI_final = imerode(rgbI_noholes,seD);
+    rgbI_final_W = imerode(rgbI_noholes,seD);
     
     
     %Find colonies using boundary.
     %B, returns an array of pixel locations
     %L, label matrix of objects
     %n, number of objects (labels)
-    [B1,L1,n1] = bwboundaries(rgbI_final,'noholes');   
-
-%Remove comments if one wants to check the boundaries found
-%         figure
-%         imshow(I)
-%         hold on
-%         for k = 1:length(B)
-%            boundary = B{k};
-%            plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
-%         end
+    %[B1,L1,n1] = bwboundaries(rgbI_final,'noholes');   
 
     %Filter dark colonies
     rgbBW = rgbI < 50;%imshow(rgbBW)
@@ -101,60 +92,62 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     %rgbI_final = rgbI_nobord;
     %smooth object. Avoids extracting background information.
     seD = strel('diamond',1);
-    rgbI_final = imerode(rgbI_nobord,seD);
+    rgbI_final_B = imerode(rgbI_nobord,seD);
 
-    %Find colonies using boundary
-    [B2,L2,n2] = bwboundaries(rgbI_final,'noholes');
-
-    %Match both boundaries, most of the time no dark colonies will be
-    %identify, therefor only the information from brigth colonies will be
-    %used.
-    if isempty(n2)
-        %BW image
-        B = B1;
-        L = L1;
-        n_colonies = n1;
-    else
-        %BW image
-        B = [B1; B2];
-        L = (L1 | L2);
-        n_colonies = (n1+n2);
-    end 
-    
+    %Combine both segmented figures
+    bw = (rgbI_final_W | rgbI_final_B);
+%     figure
+%     imshow(bw)
 
 %Remove if you want to print and save the BW image got from the boundaries
 %function
 %     figure
-%     imshow(L)
+%     imshow(BW)
 %     print(strcat(filename{1},'-BW'),'-dpng');
 %     close;
 
 %%
 %watershed
     %Remove small white objects from the image
-    %BW = ~bwareaopen(~L, 10);
-    BW = L;
+    BW = ~bwareaopen(~bw, 10);
+    %BW = L;
     %Get distance between white objects
     D = -bwdist(~BW);
     %Computes local maxima. Center of the colonies
     mask = imextendedmin(D,1,4);
     
-    figure
-    imshowpair(BW,mask,'blend')
-    print(strcat(file,'-blend'),'-dpng');
-    close;
+%     figure
+%     imshowpair(BW,mask,'blend')
+%     print(strcat(file,'-blend'),'-dpng');
+%     close;
     
     D2 = imimposemin(D,mask);
     LD = watershed(D2);
     BW2 = BW;
     BW2(LD == 0) = 0;
-    figure
-    imshow(BW2)
+%     figure
+%     imshow(BW2)
+%     print(strcat(file,'-BW'),'-dpng');
+%     close;
     %
+    
+    %%
+    %New boundaries
+    %[L] = bwboundaries(BW2,'noholes');
+    [B,L] = bwboundaries(BW2,'noholes');
+
+    %Remove comments if one wants to check the boundaries found
+%         figure
+%         imshow(L)
+%         hold on
+%         for k = 1:length(B)
+%            boundary = B{k};
+%            plot(boundary(:,2), boundary(:,1), 'r', 'LineWidth', 2)
+%         end
 
 %%
     %get morphological stats
-    stats=  regionprops(BW2, 'Centroid', 'Area', 'EquivDiameter', 'Perimeter', 'Circularity', 'Eccentricity');
+    stats=  regionprops(L, 'Centroid', 'Area', 'EquivDiameter', 'Perimeter', 'Circularity', 'Eccentricity');
     Centroid = floor(cat(1,stats.Centroid));
     Eccentricity = cat(1,stats.Eccentricity);
     Area = cat(1,stats.Area);
@@ -168,15 +161,15 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
         %Save according to RGB channel
         if k == 1
             %Better to have a different name for the different structures
-            statsPixel_red = regionprops(BW2,rgbI,{'Centroid','PixelValues','MeanIntensity'});
+            statsPixel_red = regionprops(L,rgbI,{'Centroid','PixelValues','MeanIntensity'});
             %save(strcat(filename{1},'-pixel_red.mat'), 'statsPixel_red');
         elseif k == 2
             %Better to have a different name for the different structures
-            statsPixel_green = regionprops(BW2,rgbI,{'Centroid','PixelValues', 'MeanIntensity'});
+            statsPixel_green = regionprops(L,rgbI,{'Centroid','PixelValues', 'MeanIntensity'});
             %save(strcat(filename{1},'-pixel_green.mat'), 'statsPixel_green');
         else
             %Better to have a different name for the different structures
-            statsPixel_blue = regionprops(BW2,rgbI,{'Centroid','PixelValues', 'MeanIntensity'});
+            statsPixel_blue = regionprops(L,rgbI,{'Centroid','PixelValues', 'MeanIntensity'});
             %save(strcat(filename{1},'-pixel_blue.mat'), 'statsPixel_blue');
         end
 
@@ -186,7 +179,7 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     %Filter 'bad quality data'
     %Filter by area bigger than n and eccentricity, the closes to 1 the more
     %line segment, the closes to 0 the more circular shape
-    filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79); 
+    filter1 = find(Area > 350 & Area < 70000 & Eccentricity < 0.75); 
 
     %Find the elements close the the petri dish walls
     filter2 = zeros(length(filter1),1);
@@ -199,13 +192,18 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
         xunit = floor(Diameter(filter1(i))/2 * cos(th) + Centroid(filter1(i),1));
         yunit = floor(Diameter(filter1(i))/2 * sin(th) + Centroid(filter1(i),2));
         %Find within the boundaries. Check ci variable
-        mean_xy = mean(yunit>200 & yunit<1850 & xunit>200 & xunit<1850);
-        if mean_xy == 1 && Area(filter1(i)) > 300
-           filter2(i) = filter1(i);
+        %mean_xy = mean(yunit>200 & yunit<1850 & xunit>200 & xunit<1850);
+        mean_xy = mean(yunit<250 | yunit>1825 | xunit<250 | xunit>1800);
+        if mean_xy > 0 
+            if Area(filter1(i)) < 1000 || Eccentricity(filter1(i)) > 0.35
+            %&& Area(filter1(i)) < 300 && 
+            filter2(i) = filter1(i);
+            end 
         end
     end
 
     filter2 = nonzeros(filter2);
+    filter2 = setdiff(filter1, filter2);
     
     %%
     %Get std on pixel values of the selected colonies
@@ -251,17 +249,17 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     imshow(I);
     viscircles(centroid,diameter/2,'EdgeColor','b');
     text(centroid(:,1), centroid(:,2), colony);
-    print(strcat(file,'-IDs'),'-dpng');
+    print(strcat(file,'-IDs_Water'),'-dpng');
     close;
     %%
-    %Check how to save the data, all the variables bwboundaries, regiongprops
-    %morphological and pixel values
-    %Save data
-%     statsData = struct('label', label, 'ID', ID, 'centroid', centroid,...
-%         'area', area, 'diameter', diameter,'perimeter', perimeter, 'circularity', circularity,...
-%         'eccentricity', eccentricity, 'R_mean', R_mean, 'R_std', std_red,...
-%         'G_mean', G_mean, 'G_std', std_green, 'B_mean', B_mean, 'B_std', std_red);
-%     save(strcat(file,'-data.mat'), 'statsData');
+%     Check how to save the data, all the variables bwboundaries, regiongprops
+%     morphological and pixel values
+%     Save data
+    statsData = struct('label', label, 'ID', ID, 'centroid', centroid,...
+        'area', area, 'diameter', diameter,'perimeter', perimeter, 'circularity', circularity,...
+        'eccentricity', eccentricity, 'R_mean', R_mean, 'R_std', std_red,...
+        'G_mean', G_mean, 'G_std', std_green, 'B_mean', B_mean, 'B_std', std_red);
+    save(strcat(file,'-dataWater.mat'), 'statsData');
     
- 
+    n = length(area);
 end
