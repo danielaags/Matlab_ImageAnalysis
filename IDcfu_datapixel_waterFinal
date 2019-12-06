@@ -186,7 +186,7 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
     %Filter 'bad quality data'
     %Filter by area bigger than n and eccentricity, the closes to 1 the more
     %line segment, the closes to 0 the more circular shape
-    filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.7); 
+    filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79); 
 
     %Find the elements close the the petri dish walls
     filter2 = zeros(length(filter1),1);
@@ -199,8 +199,8 @@ function[statsData] = IDcfu_datapixel_waterFinal(day0, plateN, fileimage)
         xunit = floor(Diameter(filter1(i))/2 * cos(th) + Centroid(filter1(i),1));
         yunit = floor(Diameter(filter1(i))/2 * sin(th) + Centroid(filter1(i),2));
         %Find within the boundaries. Check ci variable
-        mean_xy = mean(yunit>200 & yunit<1875 & xunit>200 & xunit<1875);
-        if mean_xy == 1 && Area(filter1(i)) > 400
+        mean_xy = mean(yunit>200 & yunit<1850 & xunit>200 & xunit<1850);
+        if mean_xy == 1 && Area(filter1(i)) > 300
            filter2(i) = filter1(i);
         end
     end
