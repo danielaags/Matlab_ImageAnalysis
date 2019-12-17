@@ -1,0 +1,122 @@
+images = dir('*.tif');
+
+%Load and change name
+load('day15_Data.mat');
+tday15 = table(day15.ID, day15.ID, day15.centroids, day15.R_mean, day15.R_std, ...
+    day15.G_mean, day15.G_std, day15.B_mean, day15.B_std, 'VariableNames',...
+    {'ID', 'sample', 'centroids', 'R_mean', 'R_std', 'G_mean', 'G_std', 'B_mean', 'B_std'});
+%tday15 = struct2table(day15);
+
+%Load and change name
+load('day20_Data.mat');
+tday20 = struct2table(day20);
+
+%Extract the plate number
+plate20 = unique(tday20(:,2));
+plate20 = [table("20ul-nr1", 'VariableName',{'sample'});plate20];
+
+%Extract the identification colony number
+id15 = double(split(day15.ID, '-')); 
+id20 = double(split(day20.ID, '-')); 
+%Extract the plate number
+ID = unique(id20(:,1));
+
+%Extract centroids
+centroid15 = day15.centroids;
+centroid20 = day20.centroids;
+
+
+for k = 1:length(ID)
+    idx15 = find(k == id15(:,1));
+    idx20 = find(k == id20(:,1));
+    index = {};
+
+    %Matching day15 and day20
+    for i = 1:length(idx20)
+        %Check the y access within a range of +-10
+            idy = find(centroid20(idx20(i),1)-10 <= centroid15(idx15,1) & centroid20(idx20(i),1)+10 >= centroid15(idx15,1));
+            %If not found check withing a range of +-15
+            if isempty(idy)
+                idy = find(centroid20(idx20(i),1)-20 <= centroid15(idx15,1) & centroid20(idx20(i),1)+20 >= centroid15(idx15,1));
+            end
+        %Check the x access within a range of +-10
+            idx = find(centroid20(idx20(i),2)-10 <= centroid15(idx15,2) & centroid20(idx20(i),2)+10 >= centroid15(idx15,2));
+            %If not found check withing a range of +-15
+            if isempty(idx)
+                idx = find(centroid20(idx20(i),2)-20 <= centroid15(idx15,2) & centroid20(idx20(i),2)+20 >= centroid15(idx15,2));
+            end
+            
+            %If find() empty, asume is not in the other plate and presetve
+            %position. Important when the list k has more elements than k+1
+            if isempty(idy) && isempty(idx)
+%                 if length(idx) == 1
+%                     index{i} = idx
+%                 end
+%             elseif isempty(idx)
+%                 if length(idy) == 1
+%                     index{i} = idy;
+%                 end
+            else
+                %If the searches are not empty, get the intersection, save
+                %the index only if the intersection length is 1 
+                id = intersect(idy, idx);
+                if length(id) == 1
+                    index{i} = id;
+                end
+            end
+    end
+    
+    %Turn the indexes coming from day15 to double to find which colonies
+    %are new
+    found15 = setdiff(1:length(idx15), cell2mat(index));
+    %Save the max numbers in a sample
+    nmax = length(idx20)+length(found15);
+    
+    %Plate
+    name = table2array(plate20(k,:));
+    newplate = repmat(name, nmax,1);
+    num = string(1:nmax);
+    p = repelem(k,nmax);
+    newlabels = strcat(string(p),'-', num)';
+    
+    if k == 1
+        tALL = [tday20(idx20,:);tday15(idx15(found15),:)];
+        tALL(:,1) = table(newlabels);
+        tALL(:,2) = table(newplate);
+        centroid = table2array(tALL(:,3));
+        %Print on plate
+        I = imread(images(k).name);
+        figure
+        imshow(I);
+        viscircles(centroid,repelem(20,nmax),'EdgeColor','g');
+        text(centroid(:,1), centroid(:,2), num);
+        print(strcat(name,'-IDnums'),'-dpng');
+        close;
+    else
+        temp = [tday20(idx20,:);tday15(idx15(found15),:)];
+        temp(:,1) = table(newlabels);
+        temp(:,2) = table(newplate);
+        centroid = table2array(temp(:,3));
+        %Print on plate
+        I = imread(images(k).name);
+        figure
+        imshow(I);
+        viscircles(centroid,repelem(20,nmax),'EdgeColor','g');
+        text(centroid(:,1), centroid(:,2), num);
+        print(strcat(name,'-IDnums'),'-dpng');
+        close;
+        
+        %Add to the table
+        tALL = [tALL; temp];
+    end
+    
+end
+
+%Save as excel
+tdata = tALL(:,1:3);
+writetable(tdata, 'dataBennets-Day15_20.xls')
+
+%Save as .mat
+sALL = table2struct(tALL);
+save('day15-20_data.mat', 'sALL');
+
