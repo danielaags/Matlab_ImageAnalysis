@@ -8,9 +8,9 @@ function[statsData] = IDcfu_datapixelFinal_transversalcolonyPixel(day0, plateN, 
     %clear
 
     %to test without function
-    day0 = '191123';
-    plateN = '1';
-    fileimage = 'i1_d5_20ul-nr1';
+%     day0 = '191123';
+%     plateN = '1';
+%     fileimage = 'i1_d5_20ul-nr6';
     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
@@ -213,12 +213,12 @@ function[statsData] = IDcfu_datapixelFinal_transversalcolonyPixel(day0, plateN, 
     %%
     %Extract transversal information colony: mean and std
     %empty array to sabe data
-    RGBt_mean = zeros(length(centroid), 3);
-    RGBt_std = zeros(length(centroid), 3);
+    RGBt_mean = zeros(length(diameter), 3);
+    RGBt_std = zeros(length(diameter), 3);
     
     %Get x and y coordinates, x fixed
-    for j = 1:length(centroid)
-        x = floor(centroid(j,1)-diameter(1)/2:centroid(j,1)+diameter(1));
+    for j = 1:length(diameter)
+        x = floor(centroid(j,1)-diameter(j)/2:centroid(j,1)+diameter(j)/2);
         y = repmat(floor(centroid(j,2)), 1, length(x));
         c = improfile(I,x,y);
         %Read channel
