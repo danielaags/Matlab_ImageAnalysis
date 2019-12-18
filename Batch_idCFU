@@ -1,0 +1,18 @@
+function[] = Batch_idCFU(day0)
+%Get all the files in a directory
+fnames = dir('*tif');
+
+numfids = length(fnames);
+
+day = day0;
+
+%count = 0;
+
+
+%Go to each one and gets do identification 
+    for k = 1:numfids
+      file = strsplit(fnames(k).name,'.');
+      %IDcfu_datapixelFinal(day, num2str(k), file{1});
+      IDcfu_datapixelFinal_transversalcolonyPixel(day, num2str(k), file{1});
+    end
+end
