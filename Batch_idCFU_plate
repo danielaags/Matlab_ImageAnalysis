@@ -1,0 +1,28 @@
+%%Option to do batch in folders. Copy and plaste the following.
+% path = 'C:\Users\au648169\Documents\Postdoc_TorringLab\ImagingAnalysis\02-SecondRound\10%NBA(190exp)\PerPlate';
+% folders = dir('*nr*');
+% for i = 1:length(folders)
+%   subpath = strcat(path, '\', folders(i).name);
+%   cd(subpath);
+%   Batch_idCFU('191123', i)
+% end 
+
+function[] = Batch_idCFU_plate(day0, platenum)
+%Get all the files in a directory
+fnames = dir('*tif');
+
+numfids = length(fnames);
+
+day = day0;
+plate =  num2str(platenum);
+
+%count = 0;
+
+
+%Go to each one and gets do identification 
+    for k = 1:numfids
+      file = strsplit(fnames(k).name,'.');
+      %IDcfu_datapixelFinal(day, num2str(k), file{1});
+      IDcfu_datapixelFinal_transversalcolonyPixel(day, plate, file{1});
+    end
+end
