@@ -1,0 +1,58 @@
+function[data] =dataCollection_matfiles(filename)
+%The function will collect into a single .mat file all the outputs from any
+%ID function. Pay attention to the columns names since the only one that
+%has that order so far is IDcfu_datapixelFinal_transversalcolonyPixel
+
+%Get all the files in a directory
+fnames = dir('*mat');
+
+
+%Go to each one and gets do identification 
+for k = 1:length(fnames)
+    s = load(fnames(k).name);
+    %Get the name of the structure
+    StrName=fieldnames(s);
+    StrName=StrName{1};
+    if k == 1
+        labelAll = s.(StrName).label;
+        sampleAll = s.(StrName).sample;
+        idAll = s.(StrName).ID;
+        centroidsAll = s.(StrName).centroid;
+        areaAll = s.(StrName).area;
+        diameterAll = s.(StrName).diameter;
+        circularityAll = s.(StrName).circularity;
+        eccentricityAll = s.(StrName).eccentricity;
+        RGBmeanAll = s.(StrName).RGB_mean;
+        RGBstdAll = s.(StrName).RGB_std;
+        tRGBmeanAll = s.(StrName).RGBt_mean;
+        tRGBstdAll = s.(StrName).RGBt_std;
+       
+    else
+        labelAll = [labelAll; s.(StrName).label];
+        sampleAll = [sampleAll; s.(StrName).sample];
+        idAll = [idAll; s.(StrName).ID];
+        centroidsAll = [centroidsAll; s.(StrName).centroid];
+        areaAll = [areaAll; s.(StrName).area];
+        diameterAll = [diameterAll; s.(StrName).diameter];
+        circularityAll = [circularityAll; s.(StrName).circularity];
+        eccentricityAll = [eccentricityAll; s.(StrName).eccentricity];
+        RGBmeanAll = [RGBmeanAll; s.(StrName).RGB_mean];
+        RGBstdAll = [RGBstdAll; s.(StrName).RGB_std];
+        tRGBmeanAll = [tRGBmeanAll; s.(StrName).RGBt_mean];
+        tRGBstdAll = [tRGBstdAll; s.(StrName).RGBt_std];
+    end
+
+end
+
+
+data = struct('label', labelAll, 'sample', sampleAll, 'ID', idAll,...
+    'centroids', centroidsAll, 'area', areaAll, 'diameter', diameterAll,...
+    'circularity', circularityAll, 'eccentricity', eccentricityAll,...
+    'RGB_mean', RGBmeanAll, 'RGB_std', RGBstdAll,...
+    'RGBt_mean', tRGBmeanAll, 'RGBt_std', tRGBstdAll);
+
+%Save data
+    save(strcat(filename,'-data.mat'), 'data');
+    %tdata = table(data.sample, data.ID, data.centroids(:,1), data.centroids(:,2), 'VariableNames', {'sample', 'ID', 'centroids_y', 'centroids_x'});
+    %writetable(tdata, 'dataBennets-Day20.xls')
+end
