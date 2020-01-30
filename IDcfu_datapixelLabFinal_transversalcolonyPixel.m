@@ -1,4 +1,4 @@
-function[statsData] = IDcfu_datapixelFinal_transversalcolonyPixel(day0, plateN, fileimage)
+function[statsData] = IDcfu_datapixelLabFinal_transversalcolonyPixel(day0, plateN, fileimage)
     %This script identifies bacteria colonies in a petri dish. It generates a
     %mask first to avoid the outer part of the plate. Later, segmentation and
     %label identification allows to target even those colonies that are not
