@@ -1,9 +1,9 @@
-function[] = matchingColonies_time(folderpath)
+function[] = matchColonies_Final(folderpath)
 %The function is desing to match colonies over time after having extracting
 %morphological characteristics from each time point. The tif data has to be
 %organised by plate and include the different time points to be used.
-
 %path = 'C:\Users\au648169\Documents\Postdoc_TorringLab\ImagingAnalysis\02-SecondRound\10%NBA(190exp)\PerPlate';
+
 path = folderpath;
 folders = dir('*nr*');
 for a = 1:length(folders)
@@ -16,21 +16,25 @@ for a = 1:length(folders)
     files = dir('*data.mat');
     images = dir('*tif');
     %Better to read from the last image to the first
-    lst=sort(1:length(files), 'descend');
+    %lst=sort(1:length(files), 'descend');
+    lst=sort(1:length(files), 'ascend');
 
-    for i = 1:length(files)
+    %Extract the data to use in matching and growth rate
+    endfiles = length(files);
+    for i = 1:endfiles
         load(files(lst(i)).name);
         centroid{i} = statsData.centroid;
+        diameters{i} = statsData.diameter;
     end 
 
     %%
     %Find the size of the contents of each array. Maximum value to pre-locate
     %memory
-    cellsz = cellfun(@length,centroid,'uni',false);
-    m = max(cell2mat(cellsz));
+    cellsz = cellfun(@size,centroid,'uni',false);
+    m = min(cell2mat(cellsz));
     n = length(centroid);
 
-
+    %Match colonies base on their positions.
     for k = 1:n-1
         %Clean the index variable to save the new positions
         index={};
@@ -39,11 +43,12 @@ for a = 1:length(folders)
         %Check the lenght of the current centroids list (k), if it is different
         %from the maximum m then the for loop will take the length of the
         %current list (k) otherwise it will take m.
-        if length(centroid{k}) ~= m
-            l = length(centroid{k});
-        else
-            l = m;
-        end 
+        %if length(centroid{k}) ~= m
+           % l = length(centroid{k});
+       % else
+            %
+        %end 
+        l = m;
         for i = 1:l
                 %Check the y access within a range of +-10
                 idy = find(centroid{k}(i,1)-10 <= centroid{k+1}(:,1) & centroid{k}(i,1)+10 >= centroid{k+1}(:,1));
@@ -77,6 +82,8 @@ for a = 1:length(folders)
                     end
                 end
         end
+    end
+    
         %Turn the cell array with the re-ordered indexes to an array
         index = cell2mat(index);
         %Find the indexes not identified
@@ -95,7 +102,7 @@ for a = 1:length(folders)
         n = length(indexN);
         %Create array. Since my data was all converted to strings, an empty
         %array of strings is needed.
-        arraynew = strings(n, 22);
+        arraynew = strings(n, 35);
         for j = 1:n
             if isnan(indexN(j))
             else
@@ -120,18 +127,32 @@ for a = 1:length(folders)
         text(centroid{k+1}(tomap,1), centroid{k+1}(tomap,2), colony(tomap));
         print(strcat(file{1},'-reIDs'),'-dpng');
         close;
+        
+%%        
+        %Growth rate
+        num1 = length(diameters{1});
+        num2 = length(diameters{2});
+        if num1 > num2
+            num = num2;
+        else
+            num = num1;
+        end
+        diameter_t0 = zeros(length(diameter), 1);
+        diameter_t0(1:num) = diameters{1}(1:num);
+        growth_rate = abs(log(diameter) - log(diameter_t0))/(0.301*5);
+
+%%
 
         %Save re-ordered data
         dataReordered = struct('label', arraynew(:,1), 'sample', arraynew(:,2),...
             'ID', arraynew(:,3), 'centroids', double(arraynew(:,4:5)),...
-            'area', double(arraynew(:,6)), 'diameter', diameter, 'perimeter', double(arraynew(:,8)),...
-            'circularity', double(arraynew(:,9)), 'eccentricity', double(arraynew(:,10)),'RGB_mean', double(arraynew(:,11:13)),...
-            'RGB_std', double(arraynew(:,14:16)), 'RGBt_mean', double(arraynew(:,17:19)), 'RGBt_std', double(arraynew(:,20:22)));
-
-        save(strcat(file{1},'-Reordered.mat'), 'dataReordered');
-
-
-    end
+            'area', double(arraynew(:,6)), 'diameter_t1', diameter, 'diameter_t0', diameter_t0, 'growth_rate', growth_rate,...
+            'perimeter', double(arraynew(:,8)), 'peaks', double(arraynew(:,9)), 'circularity', double(arraynew(:,10)),...
+            'eccentricity', double(arraynew(:,11)),'RGB_mean', double(arraynew(:,12:14)),'RGB_std', double(arraynew(:,15:17)),...
+            'RGBt_mean', double(arraynew(:,18:20)), 'RGBt_std', double(arraynew(:,21:23)),'Lab_mean', double(arraynew(:,24:26)),...
+            'Lab_std', double(arraynew(:,27:29)), 'Labt_mean', double(arraynew(:,30:32)),'Labt_std', double(arraynew(:,33:35)));
+        filename = strcat(path, '\',file{1},'-Reordered.mat');
+        save(filename, 'dataReordered');
     
 end    
 end
