@@ -12,7 +12,7 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     %to test without function
     %day0 = '191123';
     %plateN = '1';
-    %fileimage = 'i1_d25_40µl-nr5';
+    %fileimage = 'i1_d25_40Âµl-nr5';
     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
@@ -171,6 +171,7 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     %Get edge information as peaks along the perimeter
     nh = length(stats);
     pks = zeros(nh, 1);
+    h_pks = zeros(nh, 1);
     for i = 1:nh
         c = stats(i).Centroid;
         h = stats(i).ConvexHull;
@@ -187,6 +188,7 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
         yy = spline(x, d, xx);
         %plot(x,y,'-',xx,yy)
         pks(i) = length(findpeaks(yy));
+        h_pks(i) = mean(d);
     end
 
     %%
@@ -253,6 +255,8 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     b_mean = cat(1,statsPixel_b(filter2).MeanIntensity);
     Lab_mean = [L_mean, a_mean, b_mean];
     peaks = pks(filter2);
+    h_peaks = h_pks(filter2);
+
     
     %%
     %Extract transversal information colony: mean and std
@@ -329,8 +333,9 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     %morphological and pixel values
     %Save data
     statsData = struct('label', label, 'sample', sample, 'ID', ID, 'centroid', centroid,...
-        'area', area, 'diameter', diameter,'perimeter', perimeter, 'peaks', peaks, 'circularity', circularity,...
-        'eccentricity', eccentricity, 'RGB_mean', RGB_mean, 'RGB_std', RGB_std,...
+        'area', area*pixel_size, 'diameter', diameter*pixel_size,'perimeter', perimeter*pixel_size,...
+        'peaks', peaks, 'h_peaks', h_pks, 'circularity', circularity,...
+        'eccentricity', eccentricity,'RGB_mean', RGB_mean, 'RGB_std', RGB_std,...
         'RGBt_mean', RGBt_mean, 'RGBt_std', RGBt_std, 'Lab_mean', Lab_mean,...
         'Lab_std', Lab_std, 'Labt_mean', Labt_mean, 'Labt_std', Labt_std);
     save(strcat(file,'-data.mat'), 'statsData');
