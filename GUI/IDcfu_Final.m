@@ -6,13 +6,14 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     %completely circular. It retrieves a .jpg file with the identifies colonies
     %and a .mat file with a label, morphological and RGB-lab pixel
     %information. 
+    %Last version 25.05.2020
 
     %clear
 
     %to test without function
-    %day0 = '191123';
-    %plateN = '1';
-    %fileimage = 'i1_d25_40µl-nr5';
+%     day0 = '191123';
+%     plateN = '2';
+%     fileimage = 'i0_d25_40µl-nr4';
     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
@@ -334,7 +335,7 @@ function[statsData] = IDcfu_Final(day0, plateN, fileimage)
     %Save data
     statsData = struct('label', label, 'sample', sample, 'ID', ID, 'centroid', centroid,...
         'area', area*pixel_size, 'diameter', diameter*pixel_size,'perimeter', perimeter*pixel_size,...
-        'peaks', peaks, 'h_peaks', h_pks, 'circularity', circularity,...
+        'peaks', peaks, 'height_peaks', h_peaks, 'circularity', circularity,...
         'eccentricity', eccentricity,'RGB_mean', RGB_mean, 'RGB_std', RGB_std,...
         'RGBt_mean', RGBt_mean, 'RGBt_std', RGBt_std, 'Lab_mean', Lab_mean,...
         'Lab_std', Lab_std, 'Labt_mean', Labt_mean, 'Labt_std', Labt_std);
