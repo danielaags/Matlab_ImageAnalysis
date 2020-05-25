@@ -3,6 +3,8 @@ function[data] =dataCollection_Final(filename)
 %ID function. Pay attention to the columns names since the only one that
 %has that order so far is IDcfu_datapixelFinal_transversalcolonyPixel
 
+%Last version 25.05.2020
+
 %Get all the files in a directory
 fnames = dir('*mat');
 
@@ -24,6 +26,7 @@ for k = 1:length(fnames)
         growthAll = s.(StrName).growth_rate;
         perimeterAll = s.(StrName).perimeter;
         peaksAll = s.(StrName).peaks;
+        height_peaksAll = s.(StrName).height_peaks;
         circularityAll = s.(StrName).circularity;
         eccentricityAll = s.(StrName).eccentricity;
         RGBmeanAll = s.(StrName).RGB_mean;
@@ -31,8 +34,8 @@ for k = 1:length(fnames)
         tRGBmeanAll = s.(StrName).RGBt_mean;
         tRGBstdAll = s.(StrName).RGBt_std;
         Lab_meanAll = s.(StrName).Lab_mean;
-         Lab_stdAll = s.(StrName).Lab_std;
-       Labt_meanAll = s.(StrName).Labt_mean;
+        Lab_stdAll = s.(StrName).Lab_std;
+        Labt_meanAll = s.(StrName).Labt_mean;
         Labt_stdAll = s.(StrName).Labt_std;
        
     else
@@ -46,6 +49,7 @@ for k = 1:length(fnames)
         growthAll = [growthAll; s.(StrName).growth_rate];
         perimeterAll = [perimeterAll; s.(StrName).perimeter];
         peaksAll = [peaksAll; s.(StrName).peaks];
+        height_peaksAll = [height_peaksAll; s.(StrName).height_peaks];
         circularityAll = [circularityAll; s.(StrName).circularity];
         eccentricityAll = [eccentricityAll; s.(StrName).eccentricity];
         RGBmeanAll = [RGBmeanAll; s.(StrName).RGB_mean];
@@ -64,9 +68,9 @@ end
 
 %Save struct data
 data = struct('label', labelAll, 'sample', sampleAll, 'ID', idAll,...
-    'centroids', centroidsAll, 'area', areaAll, 'diameter_t1', diametert1All,...
-    'diameter_t0', diametert0All, 'growth_rate', growthAll,...
-    'perimeter', perimeterAll, 'peaks', peaksAll,...
+    'centroids', centroidsAll, 'area', areaAll, 'diameter_t0', diametert0All,...
+    'diameter_t1', diametert1All,'growth_rate', growthAll, 'perimeter', perimeterAll,...
+    'peaks', peaksAll, 'height_peaks', height_peaksAll,...
     'circularity', circularityAll, 'eccentricity', eccentricityAll,...
     'RGB_mean', RGBmeanAll, 'RGB_std', RGBstdAll, 'RGBt_mean', tRGBmeanAll,...
     'RGBt_std', tRGBstdAll, 'Lab_mean', Lab_meanAll, 'Lab_std', Lab_stdAll,...
