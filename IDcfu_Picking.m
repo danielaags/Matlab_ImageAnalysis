@@ -10,12 +10,15 @@
 
     clear;
     close all;
-
+%%
     %to test without function
     day0 = '191119';
     plateN = '1';
-    fileimage = 'Clara_10%NB_10-3';
+    %fileimage = 'Clara_10%NB_10-3';
     %fileimage = 'Clara_ISP2_10-3';
+    %fileimage = 'JAR_AC_10-4';
+    %fileimage = 'BHI_AMS_10-1';
+    fileimage = 'Martin_PDA_10-3';
     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
@@ -57,21 +60,26 @@
 %     close;
     M = size(p0);
     m = M(1);
-    index = [1:2:m];
-    
+    index = (1:2:m);
+    center = [y0(index), x0(index)];
+
 %%
 %Background
-%     Iback = imread('Bacground_ISP2', 'tif');
-%     %Turn into 8-bit, RGB range 0-255 with a simple division
-%     Iback = uint8(Iback/257);
-%     rgbIback = imadjust(Iback(:,:,1), [0.1 0.50],[]); %imshow(rgbIback) %ISP2
-%     
-% %Correct non-uniform ilumination. Adjust specific range if needed
-%     %rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]); %10NBA
-%     rgbIm = imadjust(I(:,:,1), [0.1 0.50],[]); imshow(rgbIm) %ISP2
-%     
-% %Substract the background
-%     rgbC = (rgbIm - rgbIback); imshow(rgbC);
+    %Iback = imread('10%NBA_background', 'tif');
+    %Iback = imread('ISP2_bacground', 'tif');
+    %Iback = imread('AC_background', 'tif');
+    %Iback = imread('BHI_background', 'tif');
+    Iback = imread('PDA_background', 'tif');
+    %Turn into 8-bit, RGB range 0-255 with a simple division
+    Iback = uint8(Iback/257);
+    rgbIback = imadjust(Iback(:,:,1), [0.1 0.50],[],[]); %imshow(rgbIback) %ISP2
+    
+%Correct non-uniform ilumination. Adjust specific range if needed
+    %rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]); %10NBA
+    rgbIm = imadjust(I(:,:,1), [0.1 0.50],[],[]); %imshow(rgbIm) %ISP2
+    
+%Substract the background
+    rgbC = (rgbIm - rgbIback); %imshow(rgbC);
 %%
     for p = 1:length(index)
         c = index(p);
@@ -82,28 +90,25 @@
     %I decided to only take information from the red channel
 
     %%Remove uninterested region from the image 
-        %Get the image size to remove the rim of the petri dish
-        imageSize = size(I);
+        imageSize = size(rgbC);
         %center and radius of circle ([c_col, c_row, r]). I set my center at
         %[y0,x0] = [1040, 1015] and r = 845
-        ci = [y, x, r]; 
+        ci = [y, x, r];  
         %Make a grid the same dimensions as the original image
         [xx,yy] = ndgrid((1:imageSize(1))-ci(1),(1:imageSize(2))-ci(2));
         %Make a mask that will turn black all the area outside the plate by
         %fitting a circle with the size of the plate
         mask = uint8((xx.^2 + yy.^2)<ci(3)^2);
         %Generate the new image, cropped imaged after the mask is applied
-        croppedImage = uint8(true(size(I)));
-        croppedImage(:,:,1) = I(:,:,1).*mask;
-        croppedImage(:,:,2) = I(:,:,2).*mask;
-        croppedImage(:,:,3) = I(:,:,3).*mask;
+        croppedImage = uint8(true(size(rgbC)));
+        croppedImage(:,:,:) = rgbC(:,:,:).*mask;
 
     %Remove comments if you want to print the crooped image
     %     figure
     %     imshow(croppedImage)
         
         %Correct non-uniform ilumination. Adjust specific range if needed
-        rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]); %10NBA
+        %rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]); %10NBA
         %rgbIm = imadjust(I(:,:,1), [0.1 0.50],[]); imshow(rgbIm) %ISP2
     
         %There are two types of colonies on the plates, ones with higher RGB values
@@ -111,7 +116,7 @@
         %background. I implemented a two-step process to identify all of them.
 
         %Filter bright colonies
-        rgbBW = rgbI >=200;%imshow(rgbBW)
+        rgbBW = croppedImage >=200;%imshow(rgbBW)
         %remove connected objects
         rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
         %to fill up holes
@@ -137,13 +142,14 @@
     %         end
 
         %Filter dark colonies
-        rgbBW = rgbI < 50;%imshow(rgbBW)
+        rgbBW = ((croppedImage < 50)-1)*-1;%imshow(rgbBW)
         %remove connected objects
         rgbI_nobord = imclearborder(rgbBW,8);%imshow(rgbI_nobord)
-        %rgbI_final = rgbI_nobord;
+        %fill holes
+        rgbI_noholes = imfill(rgbI_nobord,'holes');%imshow(rgbI_final)   
         %smooth object. Avoids extracting background information.
         seD = strel('diamond',1);
-        rgbI_final = imerode(rgbI_nobord,seD);
+        rgbI_final = imerode(rgbI_noholes,seD);
 
         %Find colonies using boundary
         [B2,L2,n2] = bwboundaries(rgbI_final,'noholes');
@@ -166,15 +172,32 @@
         %imshow(L)
         %integrate all the find colonies
         if p == 1
-            L = l;
+            Lall = l;
         else 
-            L = (L| l);
+            Lall = (Lall| l);
 
         end
     
     end
     
-    %imshow(L)
+    %imshow(Lall)
+   
+    %%
+%watershed
+    %Remove small white objects from the image
+    BW = ~bwareaopen(~Lall, 10);
+    %BW = L;
+    %Get distance between white objects
+    D = -bwdist(~BW);
+    %Computes local maxima. Center of the colonies
+    mask = imextendedmin(D,1,4);
+    
+    D2 = imimposemin(D,mask);
+    LD = watershed(D2);
+    L = BW;
+    L(LD == 0) = 0;
+    %figure
+    %imshow(BW2)
 %%    
 % %Generate boundaries again and get only the ones selected
 % b = bwboundaries(L);
@@ -255,7 +278,7 @@
 %     %Filter 'bad quality data'
 %     %Filter by area bigger than n and eccentricity, the closes to 1 the more
 %     %line segment, the closes to 0 the more circular shape
-%     filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79); 
+     filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79); 
 % 
 %     %Find the elements close the the petri dish walls
 %     filter2 = zeros(length(filter1),1);
@@ -277,25 +300,25 @@
 %     filter2 = nonzeros(filter2);
     
     %%
-    center = [y0(index), x0(index)];
+    centroidfilter = Centroid(filter1,:);
+
     
 %     %Filter by selected colonies
     l = length(center);
     found = zeros;
     for i = 1:p
         %Check the y access within a range of +-10
-        idy = find(center(i,1)-15 <= Centroid(:,1) & center(i,1)+15 >= Centroid(:,1));
+        idy = find(center(i,1)-15 <= centroidfilter(:,1) & center(i,1)+15 >= centroidfilter(:,1));
         %If not found check withing a range of +-15
         %Check the x access within a range of +-10
-        idx = find(center(i,2)-15 <= Centroid(:,2) & center(i,2)+15 >= Centroid(:,2));
+        idx = find(center(i,2)-15 <= centroidfilter(:,2) & center(i,2)+15 >= centroidfilter(:,2));
         %If not found check withing a range of +-15
         
         %If find() empty, asume is not in the other plate and presetve
         %position. Important when the list k has more elements than k+1
-        if isempty(idy) && isempty(idx)
-            idy = find(center(i,1)-20 <= Centroid(:,1) & center(i,1)+ 20 >= Centroid(:,1));
-            idx = find(center(i,2)-20 <= Centroid(:,2) & center(i,2)+20 >= Centroid(:,2));
-            
+        if isempty(idy) || isempty(idx)
+            idy = find(center(i,1)-20 <= centroidfilter(:,1) & center(i,1)+ 20 >= centroidfilter(:,1));
+            idx = find(center(i,2)-20 <= centroidfilter(:,2) & center(i,2)+20 >= centroidfilter(:,2));           
             %Assign empty value
             %found(i) = NaN;
         end
@@ -304,7 +327,7 @@
         %the index only if the intersection length is 1 
         id = intersect(idy, idx);
         if length(id) == 1
-            found(i) = id;
+            found(i) = filter1(id);
         else
             found(i) = NaN;
         end
