@@ -1,86 +1,102 @@
-%function[statsData] = IDcfu_Final(day0, plateN, fileimage)
-    %Input: day0, plate# and .tif file
-    %This script identifies bacteria colonies in a petri dish. It generates a
-    %mask first to avoid the outer part of the plate. Later, segmentation and
-    %label identification allows to target even those colonies that are not
-    %completely circular. It retrieves a .jpg file with the identifies colonies
+function[] = IDcfu_Picking()
+%function[statsData] = IDcfu_Picking(day0, plateN, fileimage, back)
+    %Input: day0, plate#, .tif file (as string) and background (as double) to be used.
+    %This script identifies selected bacteria colonies in a petri dish. 
+    %It generates a mask of the region around the colony selected. Then,
+    %it combines de binary images into a single one 'Lall'. Later, using
+    %watershed we avoid the fused colonies. Segmentation and label identification 
+    %allows to target even those colonies that are not completely circular. 
+    %It retrieves a .jpg file with the identifies colonies
     %and a .mat file with a label, morphological and RGB-lab pixel
     %information. 
-    %Last version 25.05.2020
+    %Last version 20.11.2020
+    
+    %example: IDcfu_Picking('191120', '1', 'Clara_10%NB_10-3', 1)
 
-    clear;
-    close all;
+    %clear;
+    %close all;
+    
 %%
     %to test without function
-    day0 = '191119';
-    plateN = '1';
+    %day0 = '191120';
+    %plateN = '1';
     %fileimage = 'Clara_10%NB_10-3';
     %fileimage = 'Clara_ISP2_10-3';
     %fileimage = 'JAR_AC_10-4';
     %fileimage = 'BHI_AMS_10-1';
-    fileimage = 'Martin_PDA_10-3';
+    %fileimage = 'Martin_PDA_10-3';
     
     %Pixel transformation from DistancePix to cm
     %pixel_size=1/DistancePix;
     %1inch x 96 pixels; 1inch = 2.54cm
     pixel_size=2.54/96; %cm
-
+    
+    %Inputs
     %Information required to generate a label
-    day = day0; 
-    %Replace plateN it with n counter
-    plate = plateN;
-
-    %Read files. Batch of pictures from a plate taken along several days
-    file= fileimage;
+    day = '191120';
+    plate = '1'; 
+    %Background to use
+    background = '10%NBA_background';
+    %File image
+    fileimage = 'Image';
+    
+    %% Get the inputs from user   
+    prompt = {'Image name', 'Day experiment:','Plate number', 'Background'};
+    dlg_title = 'Input parameters';
+    num_lines = 1;
+    defaultans = {fileimage, day, plate, background};
+    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+    fileimage = answer{1};
+    day = answer{2};
+    plate = answer{3};
+    background = answer{4};
+    
+    %% Get the MATLAB folder where the backgroun images are stored
+    folder = uigetdir();
+    
+    %% Read the image
     %16-bit file, RGB range 0-2500
-    I = imread(file, 'tif');
+    I = imread(fileimage, 'tif');
     %Turn into 8-bit, RGB range 0-255 with a simple division
     I = uint8(I/257);
     
-    %%
-    %Pick colonies
-    %     figure
-%     imshow(I)
-%     hold on
-%     [yCenter, xCenter] = ginput();
-%     hold off
-%     
-%     %Round the values for easy manipulation next
-%     center = [round(yCenter), round(xCenter)];
+    %% Pick colonies to analze
     
     figure
     imshow(I)
+    %Allows to interact with the image
     [y0,x0,p0] = impixel();
     close;
-
-%Remove comments if you want to print and save the image after  the crooped image
-%     figure
-%     imshow(rgbI)
-%     print(strcat(filename{1},'-adjust'),'-dpng');
-%     close;
+    %Get the total of points (two per colony)
     M = size(p0);
     m = M(1);
+    %Generate indexes to go through
     index = (1:2:m);
+    %Save the centers of each colony
     center = [y0(index), x0(index)];
 
-%%
-%Background
-    %Iback = imread('10%NBA_background', 'tif');
-    %Iback = imread('ISP2_bacground', 'tif');
-    %Iback = imread('AC_background', 'tif');
-    %Iback = imread('BHI_background', 'tif');
-    Iback = imread('PDA_background', 'tif');
+%% Get the background image
+    background_file = strcat(folder,'\',background);
+    %background = ["10%NBA_background","ISP2_background","AC_background",...
+    %    "BHI_background","PDA_background"];
+    %bg = 1;
+    %Iback = imread('10%NBA_background', 'tif'); %1
+    %Iback = imread('ISP2_bacground', 'tif'); %2
+    %Iback = imread('AC_background', 'tif'); %3
+    %Iback = imread('BHI_background', 'tif'); %4
+    %Iback = imread('PDA_background', 'tif'); %5
+    Iback = imread(background_file, 'tif');
     %Turn into 8-bit, RGB range 0-255 with a simple division
     Iback = uint8(Iback/257);
     rgbIback = imadjust(Iback(:,:,1), [0.1 0.50],[],[]); %imshow(rgbIback) %ISP2
     
-%Correct non-uniform ilumination. Adjust specific range if needed
+    %Correct non-uniform ilumination. Adjust specific range if needed
     %rgbI = imadjust(croppedImage(:,:,1), [0 0.60],[]); %10NBA
     rgbIm = imadjust(I(:,:,1), [0.1 0.50],[],[]); %imshow(rgbIm) %ISP2
     
-%Substract the background
+    %Substract the background
     rgbC = (rgbIm - rgbIback); %imshow(rgbC);
-%%
+    %% For each colony generate a mask delimited by the points selected
     for p = 1:length(index)
         c = index(p);
         r = round(sqrt((x0(c)-x0(c+1))^2+(y0(c)-y0(c+1))^2));
@@ -182,11 +198,9 @@
     
     %imshow(Lall)
    
-    %%
-%watershed
+    %% For fused colonies watershed is implemented
     %Remove small white objects from the image
     BW = ~bwareaopen(~Lall, 10);
-    %BW = L;
     %Get distance between white objects
     D = -bwdist(~BW);
     %Computes local maxima. Center of the colonies
@@ -198,35 +212,23 @@
     L(LD == 0) = 0;
     %figure
     %imshow(BW2)
-%%    
-% %Generate boundaries again and get only the ones selected
-% b = bwboundaries(L);
-% [Lall, num_Obj] = bwlabel(L, 4);
-% %
-% for k = 1:num_Obj
-%     Obj = Lall == k;
-%       bb = b{k};
-%       X_obj = bb(:, 1);
-%       Y_obj = bb(:, 2);
-%       Select{k} = inpolygon(xCenter,yCenter,X_obj,Y_obj); 
-%  end
-% Select;
+    %close
 
-%%
-    %get morphological stats
+    %% Get morphological stats
     stats=  regionprops(L, 'Centroid', 'Area', 'EquivDiameter', 'Perimeter', 'Circularity', 'Eccentricity', 'ConvexHull');
     Centroid = floor(cat(1,stats.Centroid));
     Eccentricity = cat(1,stats.Eccentricity);
     Area = cat(1,stats.Area);
     Diameter = cat(1,stats.EquivDiameter);
     
-    %%
-    %Get pixel information per channel RGB and Lab. Use the BW image generated using
-    %boundaries
+    %% Get pixel information per channel RGB and Lab. 
+    %Use the BW image generated usingboundaries
+    
     %First turn RGB image to Lab
     labIm = rgb2lab(I);
     
     for k = 1:3
+        %Save each channel in a variable for easy manipulation
         rgbI = I(:,:,k);
         labI = labIm(:,:,k);
         %Save according to RGB channel
@@ -249,8 +251,9 @@
 
     end
     
-    %%
-    %Get edge information as peaks along the perimeter
+    %% Get edge information as peaks along the perimeter
+    
+    %Empty vectors to save data
     nh = length(stats);
     pks = zeros(nh, 1);
     h_pks = zeros(nh, 1);
@@ -273,13 +276,14 @@
         h_pks(i) = mean(d);
     end
     
-%%
-%     %%
-%     %Filter 'bad quality data'
-%     %Filter by area bigger than n and eccentricity, the closes to 1 the more
-%     %line segment, the closes to 0 the more circular shape
-     filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79); 
-% 
+    %% Filter 'bad quality data'. Step 1
+%    %Filter by area bigger than n and eccentricity, the closes to 1 the more
+%    %line segment, the closes to 0 the more circular shape
+     filter1 = find(Area > 200 & Area < 70000 & Eccentricity < 0.79);
+
+      %% Filter 'bad quality data'. Step 2
+      %Deprecated since we want to be able to analise whatever is choosen
+      
 %     %Find the elements close the the petri dish walls
 %     filter2 = zeros(length(filter1),1);
 % 
@@ -299,13 +303,16 @@
 % 
 %     filter2 = nonzeros(filter2);
     
-    %%
+    %% Organise the data by the order they were selected
     centroidfilter = Centroid(filter1,:);
-
+    %Get the total of points after filtering
+    C = size(centroidfilter);
+    c = C(1);
     
-%     %Filter by selected colonies
-    l = length(center);
-    found = zeros;
+    %Empty vector
+    found = zeros(1,c);
+    
+    %Filter by selected colonies
     for i = 1:p
         %Check the y access within a range of +-10
         idy = find(center(i,1)-15 <= centroidfilter(:,1) & center(i,1)+15 >= centroidfilter(:,1));
@@ -335,8 +342,9 @@
     
     filter2 = rmmissing(found);
 
-%%
-    %Get std on pixel values of the selected colonies
+    %% Get std on pixel values of the selected colonies
+    
+    %Empty vectors
     std_red = zeros(p,1);
     std_green = zeros(p,1);
     std_blue = zeros(p,1);
@@ -357,8 +365,7 @@
     RGB_std = [std_red, std_green, std_blue];
     Lab_std = [std_L, std_a, std_b];
 
-    %%
-    %Get data filtered 
+    %% Get data filtered 
     diameter = floor(Diameter(filter2));
     centroid = Centroid(filter2,:);
     area = cat(1,stats(filter2).Area);
@@ -377,9 +384,8 @@
     h_peaks = h_pks(filter2);
 
     
-    %%
-    %Extract transversal information colony: mean and std
-    %empty array to sabe data
+    %% Extract transversal information colony: mean and std
+    %empty vectors to save data
     RGBt_mean = zeros(length(diameter), 3);
     RGBt_std = zeros(length(diameter), 3);
     Labt_mean = zeros(length(diameter), 3);
@@ -419,8 +425,8 @@
     %     figure
     %     improfile(I,x,y); grid on
     end
-%%
-    %%Plot the colonies found and save data
+    
+    %% Plot the colonies found and save data
     %At this step labels are generated
     colony = strings(length(diameter),1); 
     label = strings(length(diameter),1);
@@ -438,19 +444,15 @@
         ID(i)=strcat(plate,'-',int2str(i));
     end
     
-        %%
-    % 
+    %Map the colonies identify on the image
     figure
     imshow(I);
     viscircles(centroid,diameter/2,'EdgeColor','b');
     text(centroid(:,1), centroid(:,2), colony);
-    print(strcat(file,'-IDs'),'-dpng');
+    print(strcat(fileimage,'-IDs'),'-dpng');
     close;
     
-%%
-    %Check how to save the data, all the variables bwboundaries, regiongprops
-    %morphological and pixel values
-    %Save data
+    %% Save data
     statsData = struct('label', label, 'sample', sample, 'ID', ID, 'centroid', centroid,...
         'area', area*pixel_size, 'diameter', diameter*pixel_size,'perimeter', perimeter*pixel_size,...
         'peaks', peaks, 'height_peaks', h_peaks, 'circularity', circularity,...
@@ -463,7 +465,7 @@
 
     %Save xls data
      tdata = struct2table(statsData);
-     writetable(tdata, strcat(fileimage,'-data.xls'))
-%end
+     writetable(tdata, strcat(fileimage,'-data.xls'));
+end
 
     
