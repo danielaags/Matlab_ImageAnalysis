@@ -1,18 +1,19 @@
 function[] = IDcfu_Picking()
 %function[statsData] = IDcfu_Picking(day0, plateN, fileimage, back)
-    %Input: day0, plate#, .tif file (as string) and background (as double) to be used.
+    %Input: day0, plate#, .tif file (as string) and background (as string) to be used.
     %This script identifies selected bacteria colonies in a petri dish. 
     %It generates a mask of the region around the colony selected. Then,
-    %it combines de binary images into a single one 'Lall'. Later, using
+    %it combines the binary images into a single one 'Lall'. Later, using
     %watershed we avoid the fused colonies. Segmentation and label identification 
     %allows to target even those colonies that are not completely circular. 
-    %It retrieves a .jpg file with the identifies colonies
-    %and a .mat file with a label, morphological and RGB-lab pixel
-    %information. 
-    %Last version 20.11.2020
-    
-    %example: IDcfu_Picking('191120', '1', 'Clara_10%NB_10-3', 1)
+    %It retrieves a .jpg file with the identifies colonies (in green) as well as the
+    %non identify (in red), a .mat file with a label, morphological and RGB-lab
+    %pixel and an excel file with the same information
 
+    %Last version 25.11.2020
+    
+    %example: IDcfu_Picking()
+    
     %clear;
     %close all;
     
@@ -33,13 +34,19 @@ function[] = IDcfu_Picking()
     
     %Inputs
     %Information required to generate a label
-    day = '191120';
-    plate = '1'; 
+    day = 'ddmmyy';
+    plate = 'n'; 
     %Background to use
-    background = '10%NBA_background';
+    background = 'background_file';
     %File image
-    fileimage = 'Image';
+    %fileimage = 'Image';
+    fileimage = 'image_file';
     
+    %For more than one analysis
+    new_image = true;
+    new_background = true;
+    
+while new_image    
     %% Get the inputs from user   
     prompt = {'Image name', 'Day experiment:','Plate number', 'Background'};
     dlg_title = 'Input parameters';
@@ -52,7 +59,9 @@ function[] = IDcfu_Picking()
     background = answer{4};
     
     %% Get the MATLAB folder where the backgroun images are stored
-    folder = uigetdir();
+    if new_background
+        folder = uigetdir();
+    end
     
     %% Read the image
     %16-bit file, RGB range 0-2500
@@ -96,10 +105,13 @@ function[] = IDcfu_Picking()
     
     %Substract the background
     rgbC = (rgbIm - rgbIback); %imshow(rgbC);
+    
     %% For each colony generate a mask delimited by the points selected
-    for p = 1:length(index)
-        c = index(p);
-        r = round(sqrt((x0(c)-x0(c+1))^2+(y0(c)-y0(c+1))^2));
+    
+    radio = zeros(length(index),1);
+    for j = 1:length(index)
+        c = index(j);
+        radio(j) = round(sqrt((x0(c)-x0(c+1))^2+(y0(c)-y0(c+1))^2));
         x = y0(c);
         y = x0(c);
     %The red channel was the most informative one, therefore for colony identification
@@ -109,7 +121,7 @@ function[] = IDcfu_Picking()
         imageSize = size(rgbC);
         %center and radius of circle ([c_col, c_row, r]). I set my center at
         %[y0,x0] = [1040, 1015] and r = 845
-        ci = [y, x, r];  
+        ci = [y, x, radio(j)];  
         %Make a grid the same dimensions as the original image
         [xx,yy] = ndgrid((1:imageSize(1))-ci(1),(1:imageSize(2))-ci(2));
         %Make a mask that will turn black all the area outside the plate by
@@ -187,7 +199,7 @@ function[] = IDcfu_Picking()
 
         %imshow(L)
         %integrate all the find colonies
-        if p == 1
+        if j == 1
             Lall = l;
         else 
             Lall = (Lall| l);
@@ -306,14 +318,14 @@ function[] = IDcfu_Picking()
     %% Organise the data by the order they were selected
     centroidfilter = Centroid(filter1,:);
     %Get the total of points after filtering
-    C = size(centroidfilter);
-    c = C(1);
+    %C = size(centroidfilter);
+    %c = C(1);
     
     %Empty vector
-    found = zeros(1,c);
+    found = [];
     
     %Filter by selected colonies
-    for i = 1:p
+    for i = 1:length(index)
         %Check the y access within a range of +-10
         idy = find(center(i,1)-15 <= centroidfilter(:,1) & center(i,1)+15 >= centroidfilter(:,1));
         %If not found check withing a range of +-15
@@ -334,9 +346,11 @@ function[] = IDcfu_Picking()
         %the index only if the intersection length is 1 
         id = intersect(idy, idx);
         if length(id) == 1
-            found(i) = filter1(id);
+            %found(i) = filter1(id);
+            found = [found filter1(id)];
         else
-            found(i) = NaN;
+            %found(i) = NaN;
+            found = [found NaN];
         end
     end
     
@@ -345,16 +359,16 @@ function[] = IDcfu_Picking()
     %% Get std on pixel values of the selected colonies
     
     %Empty vectors
-    std_red = zeros(p,1);
-    std_green = zeros(p,1);
-    std_blue = zeros(p,1);
-    std_L = zeros(p,1);
-    std_a = zeros(p,1);
-    std_b = zeros(p,1);
+    std_red = zeros(length(filter2),1);
+    std_green = zeros(length(filter2),1);
+    std_blue = zeros(length(filter2),1);
+    std_L = zeros(length(filter2),1);
+    std_a = zeros(length(filter2),1);
+    std_b = zeros(length(filter2),1);
     
     %Go to each of the colonies that past the two filters and get the std
     %values using the information from PixelValues
-    for m = 1:p
+    for m = 1:length(filter2)
         std_red(m) = std(double(statsPixel_red(filter2(m)).PixelValues));
         std_green(m) = std(double(statsPixel_green(filter2(m)).PixelValues));
         std_blue(m) = std(double(statsPixel_blue(filter2(m)).PixelValues));  
@@ -426,14 +440,81 @@ function[] = IDcfu_Picking()
     %     improfile(I,x,y); grid on
     end
     
+        %% Re-order
+        
+        %New arrays to re-order in case of NaN
+        len = length(found);
+        
+        identified = zeros(len,1);
+        diameter_R = zeros(len, 1);
+        centroid_R = zeros(len, 2);
+        area_R = zeros(len, 1);
+        perimeter_R = zeros(len, 1);
+        circularity_R = zeros(len, 1);
+        eccentricity_R = zeros(len, 1);
+        peaks_R = zeros(len, 1);
+        h_peaks_R = zeros(len, 1);
+        RGB_mean_R = zeros(len, 3);
+        RGB_std_R = zeros(len, 3);
+        Lab_mean_R = zeros(len, 3);
+        Lab_std_R = zeros(len, 3);
+        RGBt_mean_R = zeros(len, 3);
+        RGBt_std_R = zeros(len, 3);
+        Labt_mean_R = zeros(len, 3);
+        Labt_std_R = zeros(len, 3);
+    
+    count = 0;
+    for i = 1:length(found)
+        if isnan(found(i))
+            identified(i) = 0;
+            diameter_R(i) = radio(i)*2;
+            centroid_R(i,:) = center(i,:);
+            area_R(i) = NaN;
+            perimeter_R(i) = NaN;
+            circularity_R(i) = NaN;
+            eccentricity_R(i) = NaN;
+            peaks_R(i) = NaN;
+            h_peaks_R(i) = NaN;
+            RGB_mean_R(i,:) = [NaN NaN NaN];
+            RGB_std_R(i,:) = [NaN NaN NaN];
+            Lab_mean_R(i,:) = [NaN NaN NaN];
+            Lab_std_R(i,:) = [NaN NaN NaN];
+            RGBt_mean_R(i,:) = [NaN NaN NaN];
+            RGBt_std_R(i,:) = [NaN NaN NaN];
+            Labt_mean_R(i,:) = [NaN NaN NaN];
+            Labt_std_R(i,:) = [NaN NaN NaN];
+            
+            count = count+1;
+        else
+            identified(i) = 1;
+            diameter_R(i) = diameter(i-count);
+            centroid_R(i,:) = centroid(i-count,:);
+            area_R(i) = area(i-count);
+            perimeter_R(i) = perimeter(i-count);
+            circularity_R(i) = circularity(i-count);
+            eccentricity_R(i) = eccentricity(i-count);
+            peaks_R(i) = peaks(i-count);
+            h_peaks_R(i) = h_peaks(i-count);
+            RGB_mean_R(i,:) = RGB_mean(i-count,:);
+            RGB_std_R(i,:) = RGB_std(i-count,:);
+            Lab_mean_R(i,:) = Lab_mean(i-count,:);
+            Lab_std_R(i,:) = Lab_std(i-count,:);
+            RGBt_mean_R(i,:) = RGBt_mean(i-count,:);
+            RGBt_std_R(i,:) = RGBt_std(i-count,:);
+            Labt_mean_R(i,:) = Labt_mean(i-count,:);
+            Labt_std_R(i,:) = Labt_std(i-count,:);
+        end
+    end
+    
+    
     %% Plot the colonies found and save data
     %At this step labels are generated
-    colony = strings(length(diameter),1); 
-    label = strings(length(diameter),1);
-    sample = strings(length(diameter),1);
+    colony = strings(length(diameter_R),1); 
+    label = strings(length(diameter_R),1);
+    sample = strings(length(diameter_R),1);
     %s = split(fileimage, '_');
     s = fileimage;
-    ID = strings(length(diameter),1);
+    ID = strings(length(diameter_R),1);
 
     %Give labels
     for i = 1:length(diameter)
@@ -445,20 +526,31 @@ function[] = IDcfu_Picking()
     end
     
     %Map the colonies identify on the image
+    %First find found and not found colonies
+    true_found = find(identified==1);
+    false_found = find(identified==0);
     figure
     imshow(I);
-    viscircles(centroid,diameter/2,'EdgeColor','b');
-    text(centroid(:,1), centroid(:,2), colony);
+    hold on
+    if not(isempty(true_found))
+        viscircles(centroid_R(true_found,:),diameter_R(true_found)/2,'EdgeColor','g');
+        text(centroid_R(true_found,1), centroid_R(true_found,2), colony(true_found));
+    end    
+    
+    if not(isempty(false_found))
+        viscircles(centroid_R(false_found,:),diameter_R(false_found)/2,'EdgeColor','r');
+        text(centroid_R(false_found,1), centroid_R(false_found,2), colony(false_found));
+    end 
     print(strcat(fileimage,'-IDs'),'-dpng');
     close;
     
-    %% Save data
-    statsData = struct('label', label, 'sample', sample, 'ID', ID, 'centroid', centroid,...
-        'area', area*pixel_size, 'diameter', diameter*pixel_size,'perimeter', perimeter*pixel_size,...
-        'peaks', peaks, 'height_peaks', h_peaks, 'circularity', circularity,...
-        'eccentricity', eccentricity,'RGB_mean', RGB_mean, 'RGB_std', RGB_std,...
-        'RGBt_mean', RGBt_mean, 'RGBt_std', RGBt_std, 'Lab_mean', Lab_mean,...
-        'Lab_std', Lab_std, 'Labt_mean', Labt_mean, 'Labt_std', Labt_std);
+    %% Save data as .mat file
+    statsData = struct('identified', identified, 'label', label, 'sample', sample, 'ID', ID, 'centroid', centroid_R,...
+        'area', area_R*pixel_size, 'diameter', diameter_R*pixel_size,'perimeter', perimeter_R*pixel_size,...
+        'peaks', peaks_R, 'height_peaks', h_peaks_R, 'circularity', circularity_R,...
+        'eccentricity', eccentricity_R,'RGB_mean', RGB_mean_R, 'RGB_std', RGB_std_R,...
+        'RGBt_mean', RGBt_mean_R, 'RGBt_std', RGBt_std_R, 'Lab_mean', Lab_mean_R,...
+        'Lab_std', Lab_std_R, 'Labt_mean', Labt_mean_R, 'Labt_std', Labt_std_R);
     
         save(strcat(fileimage,'-data.mat'), 'statsData');
 
@@ -466,6 +558,24 @@ function[] = IDcfu_Picking()
     %Save xls data
      tdata = struct2table(statsData);
      writetable(tdata, strcat(fileimage,'-data.xls'));
+     
+     %% Window to loop the analysis
+    choice = questdlg('Analise another image?', ...
+	'Option Menu', ...
+	'Yes','Yes-New background folder','No','Yes');
+    % Handle response
+    switch choice
+        case 'Yes'
+            new_image = true;
+            new_background = false;
+        case 'Yes-New background folder'
+            new_image = true;
+            new_background = true;
+        case 'No'
+            new_image = false;
+    end
+    
+end
 end
 
     
